@@ -4,40 +4,155 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      if (!env.ASSETS) {
-        return new Response("ASSETS binding is missing", {
-          status: 500
-        });
+    // CORS
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Cache-Control": "no-store"
+    };
+
+    // CORS preflight
+    if (request.method === "OPTIONS") {
+      return new Response("", {
+        status: 204,
+        headers: cors
+      });
+    }
+
+    // =========================
+    // API
+    // =========================
+    if (url.pathname === "/api") {
+      if (!env.BADMINTON_STATE) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "BADMINTON_STATE binding is missing"
+          }),
+          {
+            status: 500,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
+            }
+          }
+        );
       }
 
-      return env.ASSETS.fetch(request);
-    }
+      const key = env.STATE_KEY || DEFAULT_KEY;
 
-    return new Response("Not found", { status: 404 });
-  }
-};
+      // -------------------------
+      // GET
+      // -------------------------
+      if (request.method === "GET") {
+        const record = await env.BADMINTON_STATE.get(key, {
+          type: "json"
+        });
 
-    // トップページなどの画面表示
-    if (url.pathname !== "/api") {
-      return env.ASSETS.fetch(request);
-    }
+        return new Response(
+          record ? JSON.stringify(record) : "",
+          {
+            status: 200,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
+            }
+          }
+        );
+      }
 
-    // API処理
-    if (request.method === "OPTIONS") {
-      return new Response("", { headers: cors });
-    }
+      // -------------------------
+      // POST
+      // -------------------------
+      if (request.method === "POST") {
+        let body;
 
-    const key = env.STATE_KEY || DEFAULT_KEY;
+        try {
+          body = await request.json();
+        } catch {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: "invalid json"
+            }),
+            {
+              status: 400,
+              headers: {
+                ...cors,
+                "Content-Type": "application/json; charset=utf-8"
+              }
+            }
+          );
+        }
 
-    if (request.method === "GET") {
-      const record = await env.BADMINTON_STATE.get(key, {
-        type: "json"
-      });
+        const current = await env.BADMINTON_STATE.get(key, {
+          type: "json"
+        });
+
+        const currentRevision = Number(
+          current?.revision || 0
+        );
+
+        const requestedRevision = Number(
+          body.revision || 0
+        );
+
+        // 他の端末が先に更新していた場合
+        if (
+          current &&
+          requestedRevision !== currentRevision
+        ) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              conflict: true,
+              revision: currentRevision,
+              json: current.json || ""
+            }),
+            {
+              status: 409,
+              headers: {
+                ...cors,
+                "Content-Type": "application/json; charset=utf-8"
+              }
+            }
+          );
+        }
+
+        const next = {
+          revision: currentRevision + 1,
+          json: String(body.json || "")
+        };
+
+        await env.BADMINTON_STATE.put(
+          key,
+          JSON.stringify(next)
+        );
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            revision: next.revision,
+            json: next.json
+          }),
+          {
+            status: 200,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
+            }
+          }
+        );
+      }
 
       return new Response(
-        record ? JSON.stringify(record) : "",
+        JSON.stringify({
+          ok: false,
+          error: "Method not allowed"
+        }),
         {
+          status: 405,
           headers: {
             ...cors,
             "Content-Type": "application/json; charset=utf-8"
@@ -46,72 +161,38 @@ export default {
       );
     }
 
-    if (request.method === "POST") {
-      let body;
-
-      try {
-        body = await request.json();
-      } catch {
+    // =========================
+    // トップページ
+    // =========================
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/index.html"
+    ) {
+      if (!env.ASSETS) {
         return new Response(
-          JSON.stringify({ ok: false, error: "invalid json" }),
+          "ASSETS binding is missing",
           {
-            status: 400,
-            headers: {
-              ...cors,
-              "Content-Type": "application/json"
-            }
+            status: 500,
+            headers: cors
           }
         );
       }
 
-      const current = await env.BADMINTON_STATE.get(key, {
-        type: "json"
+      const response = await env.ASSETS.fetch(request);
+
+      const headers = new Headers(response.headers);
+
+      headers.set("Cache-Control", "no-store");
+
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers
       });
-
-      const currentRevision = Number(current?.revision || 0);
-      const requestedRevision = Number(body.revision || 0);
-
-      if (current && requestedRevision !== currentRevision) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            conflict: true,
-            revision: currentRevision,
-            json: current.json || ""
-          }),
-          {
-            headers: {
-              ...cors,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-      }
-
-      const next = {
-        revision: currentRevision + 1,
-        json: String(body.json || "")
-      };
-
-      await env.BADMINTON_STATE.put(key, JSON.stringify(next));
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          revision: next.revision,
-          json: next.json
-        }),
-        {
-          headers: {
-            ...cors,
-            "Content-Type": "application/json"
-          }
-        }
-      );
     }
 
-    return new Response("Method not allowed", {
-      status: 405,
+    return new Response("Not found", {
+      status: 404,
       headers: cors
     });
   }
