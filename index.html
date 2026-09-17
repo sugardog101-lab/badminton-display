@@ -1724,152 +1724,282 @@ function setProgressMode(mode, persist = true) {
             return `<span class="num-badge ${isMyNum ? 'my-num' : ''}">${num}</span>`;
         }
 
-        function saveServerState() {
-            // 同じブラウザからの保存要求が重なった場合は、最後の状態だけを次に保存する。
-            if (saveInFlight) {
-                saveQueued = true;
-                return;
+
+
+
+function saveServerState() {
+    // 同じブラウザからの保存要求が重なった場合は、
+    // 最後の状態だけを次に保存する。
+    if (saveInFlight) {
+        saveQueued = true;
+        return;
+    }
+
+    const state = {
+        progressMode: document.body.dataset.progressMode || 'match',
+        currentMaxPlayers: currentMaxPlayers,
+        playerCount: document.getElementById('playerCount').value,
+        courtCount: document.getElementById('courtCount').value,
+        absentPlayers: Array.from(absentPlayers),
+        completedMatches: Array.from(completedMatches),
+        courtProgress: courtProgress,
+        appliedAbsentPlayers: Array.from(appliedAbsentPlayers),
+        pendingAddedPlayers: Array.from(pendingAddedPlayers),
+        newPlayers: Array.from(newPlayers),
+        playerJoinMatch: playerJoinMatch,
+        scheduleDate: scheduleDate || getTodayKey(),
+
+        // 現在表示すべき試合を明確に共有する
+        currentMatchNum: getCurrentMatchNum(),
+
+        // 次の試合へ進んだことを検知するための番号
+        scrollVersion: scrollVersion,
+
+        matchesData: matchesData,
+        originalMatchesData: originalMatchesData,
+        baseMatchesData: baseMatchesData
+    };
+
+    const jsonStr = JSON.stringify(state);
+
+    saveInFlight = true;
+
+    fetch('/api?action=save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            json: jsonStr,
+            revision: serverRevision
+        })
+    })
+    .then(r => r.json())
+    .then(result => {
+        saveInFlight = false;
+
+        if (result && result.ok) {
+            serverRevision = Number(result.revision) || 0;
+
+            // GETと同じ「外側のrecord」を比較対象にしない。
+            // 保存した中身そのものを記録する。
+            lastServerJson = JSON.stringify({
+                revision: serverRevision,
+                json: result.json || ''
+            });
+
+            saveConflictAlerted = false;
+
+        } else {
+            // 他端末が先に更新していた場合
+            lastServerJson = '';
+
+            if (!saveConflictAlerted) {
+                saveConflictAlerted = true;
+                alert(
+                    '別の画面で最新の進行状態が更新されたため、この画面の古い状態では上書きしません。最新状態を読み込みます。'
+                );
             }
 
-            const state = {
-                 progressMode: document.body.dataset.progressMode || 'match',
-                currentMaxPlayers: currentMaxPlayers,
-                playerCount: document.getElementById('playerCount').value,
-                courtCount: document.getElementById('courtCount').value,
-                absentPlayers: Array.from(absentPlayers),
-                completedMatches: Array.from(completedMatches),
-                courtProgress: courtProgress,
-                appliedAbsentPlayers: Array.from(appliedAbsentPlayers),
-                pendingAddedPlayers: Array.from(pendingAddedPlayers),
-                newPlayers: Array.from(newPlayers),
-                playerJoinMatch: playerJoinMatch,
-                scheduleDate: scheduleDate || getTodayKey(),
-                scrollVersion: scrollVersion,
-                matchesData: matchesData,
-                originalMatchesData: originalMatchesData,
-                baseMatchesData: baseMatchesData
-            };
-            const jsonStr = JSON.stringify(state);
-            saveInFlight = true;
-
-            fetch('/api?action=save', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({json:jsonStr, revision:serverRevision})})
-                .then(r => r.json()).then((result) => {
-                    saveInFlight = false;
-
-                    if (result && result.ok) {
-                        serverRevision = Number(result.revision) || 0;
-                        lastServerJson = result.json || '';
-                        saveConflictAlerted = false;
-                    } else {
-                        // 古いタブ／別端末が先に更新した場合は、こちらから上書きしない。
-                        // 次の同期でサーバー側の最新状態を受け取る。
-                        lastServerJson = '';
-                        if (!saveConflictAlerted) {
-                            saveConflictAlerted = true;
-                            alert('別の画面で最新の進行状態が更新されたため、この画面の古い状態では上書きしません。最新状態を読み込みます。');
-                        }
-                        loadServerState(false);
-                    }
-
-                    if (saveQueued) {
-                        saveQueued = false;
-                        saveServerState();
-                    }
-                })
-                .catch(() => {
-                    saveInFlight = false;
-                    // 通信失敗時はローカル状態を捨てず、1.5秒後に自動で再保存する。
-                    saveQueued = true;
-                    setTimeout(() => {
-                        if (saveQueued && !saveInFlight) {
-                            saveQueued = false;
-                            saveServerState();
-                        }
-                    }, 1500);
-                })
-                ;
+            loadServerState(false);
         }
 
-        function loadServerState(isInitial = false) {
-            if (isInitial) showLoading(true);
+        if (saveQueued) {
+            saveQueued = false;
+            saveServerState();
+        }
+    })
+    .catch(() => {
+        saveInFlight = false;
+
+        // 通信失敗時はローカル状態を捨てず、自動再保存
+        saveQueued = true;
+
+        setTimeout(() => {
+            if (saveQueued && !saveInFlight) {
+                saveQueued = false;
+                saveServerState();
+            }
+        }, 1500);
+    });
+}
 
 
-fetch('/api?action=get').then(r=>r.text()).then((jsonStr) => {
-    if (isInitial) showLoading(false);
-    if (!jsonStr || jsonStr === lastServerJson) return;
-
-    // 操作中なら、次回の10秒後にもう一度取得する
-    if (isInteracting && !isInitial) return;
-
-    lastServerJson = jsonStr;
-
-    try {
-        const record = JSON.parse(jsonStr);
 
 
-        // 実際のアプリ状態
-        const state = JSON.parse(record.json || '{}');
 
-            
-                    const today = getTodayKey();
-                    if (state.scheduleDate && state.scheduleDate !== today) {
-                        // 日付が変わったら前日の試合を自動クリア。
-                        completedMatches = new Set();
-                        absentPlayers = new Set();
-                        appliedAbsentPlayers = new Set();
-                        pendingAddedPlayers = new Set();
-                        newPlayers = new Set();
-                        playerJoinMatch = {};
-                        courtProgress = {};
-                        matchesData = [];
-                        originalMatchesData = [];
-                        baseMatchesData = [];
-                        scheduleDate = today;
-                        lastServerJson = "";
-                        renderSelectors();
-                        renderMatches(false);
-                        saveServerState();
-                        return;
-                    }
-                    scheduleDate = state.scheduleDate || today;
-                    serverRevision = Number(state.revision) || 0;
-                    currentMaxPlayers = state.currentMaxPlayers || 4;
-                    
-                    const playerSelect = document.getElementById('playerCount');
-                    playerSelect.value = state.playerCount || 4;
-                    document.getElementById('courtCount').value = state.courtCount || 2;
-                    document.body.dataset.progressMode = state.progressMode || 'match';
+function loadServerState(isInitial = false) {
+    if (isInitial) showLoading(true);
 
-                    absentPlayers = new Set(state.absentPlayers || []);
-                    completedMatches = new Set(state.completedMatches || []);
-                    courtProgress = state.courtProgress || {};
-                    appliedAbsentPlayers = new Set(state.appliedAbsentPlayers || []);
-                    pendingAddedPlayers = new Set(state.pendingAddedPlayers || []);
-                    newPlayers = new Set(state.newPlayers || []);
-                    playerJoinMatch = state.playerJoinMatch || {};
-                    const remoteScrollVersion = state.scrollVersion || 0;
-                    const shouldRemoteScroll = !isInitial && remoteScrollVersion !== scrollVersion;
-                    scrollVersion = remoteScrollVersion;
-                    const incomingMatchesData = Array.isArray(state.matchesData) ? state.matchesData : [];
-                    // サーバーから空の試合データが返ってきても、現在の画面に有効な試合表がある場合は消さない。
-                    // 表示切替・遠隔同期で空状態を受け取った際の「試合表消失」を防止する。
-                    if (incomingMatchesData.length > 0 || !Array.isArray(matchesData) || matchesData.length === 0) {
-                        matchesData = incomingMatchesData;
-                        originalMatchesData = Array.isArray(state.originalMatchesData) ? state.originalMatchesData : [];
-                        baseMatchesData = Array.isArray(state.baseMatchesData) ? state.baseMatchesData : JSON.parse(JSON.stringify(originalMatchesData));
-                    }
-                    ensureUniquePlayersAllMatches(matchesData);
-                    ensureUniquePlayersAllMatches(originalMatchesData);
-                    ensureUniquePlayersAllMatches(baseMatchesData);
+    fetch('/api?action=get')
+        .then(r => r.text())
+        .then((jsonStr) => {
+
+            if (isInitial) showLoading(false);
+
+            if (!jsonStr) return;
+
+            // 操作中なら今回は適用せず、
+            // 次回10秒後の取得で再確認する。
+            if (isInteracting && !isInitial) return;
+
+            if (jsonStr === lastServerJson) return;
+
+            try {
+                // Workerから返ってくる外側のデータ
+                const record = JSON.parse(jsonStr);
+
+                // ★ここが重要
+                // revisionはrecord側にある
+                const remoteRevision = Number(record.revision) || 0;
+
+                // 実際のアプリ状態
+                const state = JSON.parse(record.json || '{}');
+
+                const today = getTodayKey();
+
+                // 日付が変わった場合
+                if (state.scheduleDate && state.scheduleDate !== today) {
+
+                    completedMatches = new Set();
+                    absentPlayers = new Set();
+                    appliedAbsentPlayers = new Set();
+                    pendingAddedPlayers = new Set();
+                    newPlayers = new Set();
+                    playerJoinMatch = {};
+                    courtProgress = {};
+                    matchesData = [];
+                    originalMatchesData = [];
+                    baseMatchesData = [];
+
+                    scheduleDate = today;
+                    lastServerJson = '';
 
                     renderSelectors();
-                    setProgressMode(state.progressMode || 'match', false);
-                    renderMatches(isInitial || shouldRemoteScroll);
-                } catch(e) {
-                    console.error(e);
+                    renderMatches(false);
+                    saveServerState();
+                    return;
                 }
-            }).catch(() => {});
-        }
+
+                // ★サーバーのrevisionを正しく保持
+                serverRevision = remoteRevision;
+
+                scheduleDate = state.scheduleDate || today;
+
+                currentMaxPlayers = state.currentMaxPlayers || 4;
+
+                const playerSelect = document.getElementById('playerCount');
+                playerSelect.value = state.playerCount || 4;
+
+                document.getElementById('courtCount').value =
+                    state.courtCount || 2;
+
+                document.body.dataset.progressMode =
+                    state.progressMode || 'match';
+
+                absentPlayers =
+                    new Set(state.absentPlayers || []);
+
+                completedMatches =
+                    new Set(state.completedMatches || []);
+
+                courtProgress =
+                    state.courtProgress || {};
+
+                appliedAbsentPlayers =
+                    new Set(state.appliedAbsentPlayers || []);
+
+                pendingAddedPlayers =
+                    new Set(state.pendingAddedPlayers || []);
+
+                newPlayers =
+                    new Set(state.newPlayers || []);
+
+                playerJoinMatch =
+                    state.playerJoinMatch || {};
+
+                // =========================
+                // 現在試合・スクロール情報
+                // =========================
+
+                const remoteScrollVersion =
+                    Number(state.scrollVersion) || 0;
+
+                const localScrollVersion =
+                    Number(scrollVersion) || 0;
+
+                const remoteCurrentMatch =
+                    Number(state.currentMatchNum) || 1;
+
+                const shouldRemoteScroll =
+                    !isInitial &&
+                    (
+                        remoteScrollVersion !== localScrollVersion
+                        ||
+                        remoteCurrentMatch !== getCurrentMatchNum()
+                    );
+
+                scrollVersion = remoteScrollVersion;
+
+                // =========================
+                // 試合データ
+                // =========================
+
+                const incomingMatchesData =
+                    Array.isArray(state.matchesData)
+                        ? state.matchesData
+                        : [];
+
+                if (
+                    incomingMatchesData.length > 0 ||
+                    !Array.isArray(matchesData) ||
+                    matchesData.length === 0
+                ) {
+                    matchesData = incomingMatchesData;
+
+                    originalMatchesData =
+                        Array.isArray(state.originalMatchesData)
+                            ? state.originalMatchesData
+                            : [];
+
+                    baseMatchesData =
+                        Array.isArray(state.baseMatchesData)
+                            ? state.baseMatchesData
+                            : JSON.parse(
+                                JSON.stringify(originalMatchesData)
+                            );
+                }
+
+                ensureUniquePlayersAllMatches(matchesData);
+                ensureUniquePlayersAllMatches(originalMatchesData);
+                ensureUniquePlayersAllMatches(baseMatchesData);
+
+                // 最新状態を受信したことを記録
+                lastServerJson = jsonStr;
+
+                renderSelectors();
+
+                setProgressMode(
+                    state.progressMode || 'match',
+                    false
+                );
+
+                // ★リモート側で「次の試合へ」が押された場合、
+                // こちらも同じ試合へ自動移動
+                renderMatches(
+                    isInitial || shouldRemoteScroll
+                );
+
+            } catch (e) {
+                console.error(e);
+            }
+        })
+        .catch(() => {});
+}
+
+
+
+        
     </script>
     </div>
 </body>
