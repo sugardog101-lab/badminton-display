@@ -1,0 +1,7 @@
+name = "badminton-pairing"
+main = "worker.js"
+compatibility_date = "2026-09-17"
+
+[[kv_namespaces]]
+binding = "BADMINTON_STATE"
+id = "ここにKVネームスペースIDを入力"
