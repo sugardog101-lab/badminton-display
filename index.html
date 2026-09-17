@@ -1793,16 +1793,26 @@ function setProgressMode(mode, persist = true) {
         function loadServerState(isInitial = false) {
             if (isInitial) showLoading(true);
 
-            fetch('/api?action=get').then(r=>r.text()).then((jsonStr) => {
-                if (isInitial) showLoading(false);
-                if (!jsonStr || jsonStr === lastServerJson) return;
 
-                lastServerJson = jsonStr;
+fetch('/api?action=get').then(r=>r.text()).then((jsonStr) => {
+    if (isInitial) showLoading(false);
+    if (!jsonStr || jsonStr === lastServerJson) return;
 
-                if (isInteracting && !isInitial) return;
+    // 操作中なら、次回の10秒後にもう一度取得する
+    if (isInteracting && !isInitial) return;
 
-                try {
-                    const state = JSON.parse(jsonStr);
+    lastServerJson = jsonStr;
+
+    try {
+        const record = JSON.parse(jsonStr);
+
+        // Worker/KVの外側のrevision
+        serverRevision = Number(record.revision) || 0;
+
+        // 実際のアプリ状態
+        const state = JSON.parse(record.json || '{}');
+
+            
                     const today = getTodayKey();
                     if (state.scheduleDate && state.scheduleDate !== today) {
                         // 日付が変わったら前日の試合を自動クリア。
