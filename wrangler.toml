@@ -1,6 +1,10 @@
-name = "badminton-pairing"
+name = "badminton-display"
 main = "worker.js"
 compatibility_date = "2026-09-17"
+
+[assets]
+directory = "./"
+binding = "ASSETS"
 
 [[kv_namespaces]]
 binding = "BADMINTON_STATE"
