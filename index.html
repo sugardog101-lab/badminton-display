@@ -861,9 +861,14 @@
         let matchTimes = {};
         const SCHEDULE_MATCH_COUNT = 100;
 
-        let isInteracting = false;
-        let interactTimer = null;
-        let saveTimer = null;
+
+let isInteracting = false;
+let interactTimer = null;
+let saveTimer = null;
+
+// サーバーから受信した状態を反映中かどうか
+let isApplyingServerState = false;
+        
 
         const courtNames = ["Ａコート", "Ｂコート", "Ｃコート", "Ｄコート", "Ｅコート"];
 
