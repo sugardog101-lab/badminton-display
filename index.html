@@ -1806,8 +1806,6 @@ fetch('/api?action=get').then(r=>r.text()).then((jsonStr) => {
     try {
         const record = JSON.parse(jsonStr);
 
-        // Worker/KVの外側のrevision
-        serverRevision = Number(record.revision) || 0;
 
         // 実際のアプリ状態
         const state = JSON.parse(record.json || '{}');
