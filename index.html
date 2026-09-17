@@ -890,9 +890,9 @@ let isApplyingServerState = false;
             loadServerState(true);
 
             // InfinityFreeのHits制限対策：サーバー確認は10秒間隔。
-            setInterval(() => {
-                loadServerState(false);
-            }, 10000);
+ setInterval(() => {
+    loadServerState(false);
+}, 2000);
         });
 
         function markInteraction() {
