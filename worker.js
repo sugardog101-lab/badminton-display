@@ -4,12 +4,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    const cors = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Cache-Control": "no-store"
-    };
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      if (!env.ASSETS) {
+        return new Response("ASSETS binding is missing", {
+          status: 500
+        });
+      }
+
+      return env.ASSETS.fetch(request);
+    }
+
+    return new Response("Not found", { status: 404 });
+  }
+};
 
     // トップページなどの画面表示
     if (url.pathname !== "/api") {
