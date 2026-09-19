@@ -1843,6 +1843,14 @@ function saveServerState() {
 
             saveConflictAlerted = false;
 
+            // 保存直後にサーバーの確定状態を再確認する
+            // （他端末への反映とrevisionの基準を安定させる）
+            setTimeout(() => {
+                if (!saveInFlight && !isApplyingServerState) {
+                    loadServerState(false, true);
+                }
+            }, 150);
+
         } else {
 
             // revisionが古い場合でも、ここで画面を初期化しない。
