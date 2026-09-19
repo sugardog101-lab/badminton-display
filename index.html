@@ -2055,27 +2055,6 @@ function loadServerState(isInitial = false, force = false) {
 
             const today = getTodayKey();
 
-            // ------------------------------------
-            // 日付チェック
-            // ------------------------------------
-            if (
-                state.scheduleDate &&
-                state.scheduleDate !== today
-            ) {
-
-                completedMatches = new Set();
-                absentPlayers = new Set();
-                appliedAbsentPlayers = new Set();
-                pendingAddedPlayers = new Set();
-                newPlayers = new Set();
-                playerJoinMatch = {};
-                courtProgress = {};
-
-                matchesData = [];
-                originalMatchesData = [];
-                baseMatchesData = [];
-
-                scheduleDate = today;
 
                 serverRevision =
                     remoteRevision;
@@ -2385,28 +2364,7 @@ function loadServerState(isInitial = false, force = false) {
 
                 const today = getTodayKey();
 
-                // ------------------------------------
-                // 日付チェック
-                // ------------------------------------
 
-                if (
-                    state.scheduleDate &&
-                    state.scheduleDate !== today
-                ) {
-
-                    completedMatches = new Set();
-                    absentPlayers = new Set();
-                    appliedAbsentPlayers = new Set();
-                    pendingAddedPlayers = new Set();
-                    newPlayers = new Set();
-                    playerJoinMatch = {};
-                    courtProgress = {};
-
-                    matchesData = [];
-                    originalMatchesData = [];
-                    baseMatchesData = [];
-
-                    scheduleDate = today;
 
                     // サーバー状態を消費済みにする
                     lastServerJson = jsonStr;
