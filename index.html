@@ -895,7 +895,7 @@ let isApplyingServerState = false;
             // InfinityFreeのHits制限対策：サーバー確認は10秒間隔。
  setInterval(() => {
     // 読み込み・保存中は重複通信を発生させない
-    if (!loadInFlight && !saveInFlight) {
+    if (!loadInFlight) {
         loadServerState(false);
     }
 }, 2000);
@@ -1852,15 +1852,10 @@ function saveServerState() {
             lastServerJson = '';
             saveQueued = false;
 
-            if (!conflictRetrying) {
-                conflictRetrying = true;
-                // 409応答に含まれる最新revisionをそのまま使用する。
-                // GETを挟むとKVの反映遅延で古いrevisionを再取得することがある。
-                if (result && result.conflict) {
-                    serverRevision = Number(result.revision) || serverRevision;
-                }
-                conflictRetrying = false;
-                setTimeout(() => saveServerState(), 0);
+            // 旧Workerが残っている場合の保険。画面は上書きせず、少し待って再保存する。
+            if (result && result.conflict) {
+                serverRevision = Number(result.revision) || serverRevision;
+                setTimeout(() => saveServerState(), 300);
             }
         }
 
