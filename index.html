@@ -866,6 +866,8 @@ let isInteracting = false;
 let interactTimer = null;
 let saveTimer = null;
 let loadInFlight = false;
+let initialLoadCompleted = false;
+let conflictRetrying = false;
 
 // サーバーから受信した状態を反映中かどうか
 let isApplyingServerState = false;
@@ -1737,6 +1739,11 @@ function setProgressMode(mode, persist = true) {
 
 function saveServerState() {
 
+    // 初回のサーバー読み込みが終わる前は保存しない
+    if (!initialLoadCompleted) {
+        return;
+    }
+
     // サーバーから受信した状態を反映中は保存しない
     if (isApplyingServerState) {
         return;
@@ -1838,20 +1845,31 @@ function saveServerState() {
 
         } else {
 
-            // 他端末が先に更新している
+            // revisionが古い場合でも、ここで画面を初期化しない。
+            // 最新revisionだけ取得し、現在端末で作成した状態を
+            // そのrevisionに対して一度だけ再保存する。
+            // （別端末を閉じた直後などに起きる競合対策）
             lastServerJson = '';
+            saveQueued = false;
 
-            if (!saveConflictAlerted) {
-                saveConflictAlerted = true;
-
-                alert(
-                    '別の端末で最新状態が更新されています。' +
-                    '\n最新状態を読み込みます。'
-                );
+            if (!conflictRetrying) {
+                conflictRetrying = true;
+                fetch('/api?action=get')
+                    .then(r => r.text())
+                    .then(latestText => {
+                        try {
+                            const latestRecord = JSON.parse(latestText || '{}');
+                            serverRevision = Number(latestRecord.revision) || 0;
+                        } catch (e) {
+                            // 解析できない場合は現在のrevisionを維持
+                        }
+                        conflictRetrying = false;
+                        saveServerState();
+                    })
+                    .catch(() => {
+                        conflictRetrying = false;
+                    });
             }
-
-            // 古い状態を再保存しない
-            loadServerState(false, true);
         }
 
         // 保存中に発生した最新の変更だけ再保存
@@ -1913,6 +1931,7 @@ function loadServerState(isInitial = false, force = false) {
             }
 
             if (!jsonStr) {
+                initialLoadCompleted = true;
                 return;
             }
 
@@ -2197,6 +2216,8 @@ function loadServerState(isInitial = false, force = false) {
                     isInitial || shouldRemoteScroll
                 );
 
+                initialLoadCompleted = true;
+
             } finally {
 
                 // サーバー状態の反映完了
@@ -2211,6 +2232,7 @@ function loadServerState(isInitial = false, force = false) {
             if (isInitial) {
                 showLoading(false);
             }
+            initialLoadCompleted = true;
 
         });
 }
