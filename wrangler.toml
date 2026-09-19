@@ -1,3 +1,4 @@
+```toml
 name = "badminton-display"
 main = "worker.js"
 compatibility_date = "2026-09-17"
@@ -9,3 +10,4 @@ binding = "ASSETS"
 [[kv_namespaces]]
 binding = "BADMINTON_STATE"
 id = "2d3475edfd16404ca757e2a9ab0d706c"
+```
