@@ -1739,27 +1739,26 @@ function setProgressMode(mode, persist = true) {
 
 function saveServerState() {
 
-    // 初回のサーバー読み込みが終わる前は保存しない
     if (!initialLoadCompleted) {
         return;
     }
 
-    // サーバーから受信した状態を反映中は保存しない
     if (isApplyingServerState) {
         return;
     }
 
-    // 同じブラウザから保存要求が重なった場合
-    // 最後の状態をあとで保存する
+    // 保存中なら最新状態を予約
     if (saveInFlight) {
         saveQueued = true;
         return;
     }
 
     const state = {
-        progressMode: document.body.dataset.progressMode || 'match',
+        progressMode:
+            document.body.dataset.progressMode || 'match',
 
-        currentMaxPlayers: currentMaxPlayers,
+        currentMaxPlayers:
+            currentMaxPlayers,
 
         playerCount:
             document.getElementById('playerCount').value,
@@ -1791,11 +1790,9 @@ function saveServerState() {
         scheduleDate:
             scheduleDate || getTodayKey(),
 
-        // 現在の試合
         currentMatchNum:
             getCurrentMatchNum(),
 
-        // 「次の試合へ」が押された回数・変化を共有
         scrollVersion:
             Number(scrollVersion) || 0,
 
@@ -1823,18 +1820,34 @@ function saveServerState() {
             revision: Number(serverRevision) || 0
         })
     })
-    .then(r => r.json())
-    .then(result => {
+    .then(async response => {
+
+        let result;
+
+        try {
+            result = await response.json();
+        } catch {
+            throw new Error('invalid server response');
+        }
+
+        return {
+            ok: response.ok,
+            status: response.status,
+            result
+        };
+    })
+    .then(({ ok, status, result }) => {
 
         saveInFlight = false;
 
-        if (result && result.ok) {
+        // =========================
+        // 保存成功
+        // =========================
+        if (ok && result && result.ok) {
 
-            // サーバーが確定したrevisionを保持
             serverRevision =
-                Number(result.revision) || 0;
+                Number(result.revision) || serverRevision;
 
-            // GETと同じ外側のrecord形式で保持
             lastServerJson =
                 JSON.stringify({
                     revision: serverRevision,
@@ -1843,38 +1856,81 @@ function saveServerState() {
 
             saveConflictAlerted = false;
 
-        } else {
+            // 保存中に新しい操作が発生していた場合
+            if (saveQueued) {
+                saveQueued = false;
 
-            // revisionが古い場合でも、ここで画面を初期化しない。
-            // 最新revisionだけ取得し、現在端末で作成した状態を
-            // そのrevisionに対して一度だけ再保存する。
-            // （別端末を閉じた直後などに起きる競合対策）
-            lastServerJson = '';
-            saveQueued = false;
-
-            // 旧Workerが残っている場合の保険。画面は上書きせず、少し待って再保存する。
-            if (result && result.conflict) {
-                serverRevision = Number(result.revision) || serverRevision;
-                setTimeout(() => saveServerState(), 300);
+                setTimeout(() => {
+                    if (!isApplyingServerState) {
+                        saveServerState();
+                    }
+                }, 0);
             }
+
+            return;
         }
 
-        // 保存中に発生した最新の変更だけ再保存
-        if (saveQueued) {
-            saveQueued = false;
+        // =========================
+        // 競合
+        // =========================
+        if (
+            status === 409 &&
+            result &&
+            result.conflict
+        ) {
+
+            const remoteRevision =
+                Number(result.revision) || 0;
+
+            /*
+             * サーバーが返した最新revisionを採用。
+             *
+             * ここではサーバーのjsonを画面に
+             * 上書きしない。
+             *
+             * 今この端末で行った操作を維持したまま、
+             * 最新revisionを基準に再保存する。
+             */
+            serverRevision =
+                Math.max(
+                    Number(serverRevision) || 0,
+                    remoteRevision
+                );
 
             setTimeout(() => {
+
                 if (!isApplyingServerState) {
                     saveServerState();
                 }
-            }, 0);
+
+            }, 300);
+
+            return;
         }
+
+        // =========================
+        // その他の失敗
+        // =========================
+        saveQueued = true;
+
+        setTimeout(() => {
+
+            if (
+                saveQueued &&
+                !saveInFlight &&
+                !isApplyingServerState
+            ) {
+                saveQueued = false;
+                saveServerState();
+            }
+
+        }, 1500);
     })
     .catch(() => {
 
         saveInFlight = false;
 
-        // 通信失敗時は状態を捨てない
+        // 現在の画面状態を捨てない
         saveQueued = true;
 
         setTimeout(() => {
@@ -1892,6 +1948,365 @@ function saveServerState() {
     });
 }
 
+
+function loadServerState(isInitial = false, force = false) {
+
+    if (loadInFlight && !force) {
+        return;
+    }
+
+    loadInFlight = true;
+
+    if (isInitial) {
+        showLoading(true);
+    }
+
+    fetch('/api?action=get', {
+        cache: 'no-store'
+    })
+    .then(response => {
+
+        if (!response.ok) {
+            throw new Error(
+                'HTTP ' + response.status
+            );
+        }
+
+        return response.text();
+    })
+    .then(jsonStr => {
+
+        loadInFlight = false;
+
+        if (isInitial) {
+            showLoading(false);
+        }
+
+        if (!jsonStr) {
+            initialLoadCompleted = true;
+            return;
+        }
+
+        let record;
+        let state;
+
+        try {
+
+            record = JSON.parse(jsonStr);
+
+            state = JSON.parse(
+                record.json || '{}'
+            );
+
+        } catch (e) {
+
+            console.error(
+                'サーバー状態の解析に失敗:',
+                e
+            );
+
+            return;
+        }
+
+        const remoteRevision =
+            Number(record.revision) || 0;
+
+        const localRevision =
+            Number(serverRevision) || 0;
+
+        // -----------------------------------------
+        // 初回読み込み
+        // -----------------------------------------
+        if (isInitial) {
+
+            serverRevision =
+                remoteRevision;
+
+            lastServerJson =
+                jsonStr;
+
+        } else {
+
+            // -----------------------------------------
+            // 自分の操作直後でも、
+            // 新しいrevisionなら必ず受信する
+            // -----------------------------------------
+            if (
+                remoteRevision <= localRevision
+            ) {
+                return;
+            }
+
+            /*
+             * ここでは isInteracting を理由に
+             * 新しいサーバー状態を捨てない。
+             *
+             * revisionが新しい＝別端末の更新なので、
+             * その状態を共有する。
+             */
+        }
+
+        // ========================================
+        // サーバー状態を反映
+        // ========================================
+
+        isApplyingServerState = true;
+
+        try {
+
+            const today = getTodayKey();
+
+            // ------------------------------------
+            // 日付チェック
+            // ------------------------------------
+            if (
+                state.scheduleDate &&
+                state.scheduleDate !== today
+            ) {
+
+                completedMatches = new Set();
+                absentPlayers = new Set();
+                appliedAbsentPlayers = new Set();
+                pendingAddedPlayers = new Set();
+                newPlayers = new Set();
+                playerJoinMatch = {};
+                courtProgress = {};
+
+                matchesData = [];
+                originalMatchesData = [];
+                baseMatchesData = [];
+
+                scheduleDate = today;
+
+                serverRevision =
+                    remoteRevision;
+
+                lastServerJson =
+                    jsonStr;
+
+                renderSelectors();
+                renderMatches(false);
+
+                initialLoadCompleted = true;
+
+                return;
+            }
+
+            // ------------------------------------
+            // revision
+            // ------------------------------------
+            serverRevision =
+                remoteRevision;
+
+            // ------------------------------------
+            // 基本設定
+            // ------------------------------------
+            scheduleDate =
+                state.scheduleDate || today;
+
+            currentMaxPlayers =
+                Number(
+                    state.currentMaxPlayers
+                ) || 4;
+
+            const playerSelect =
+                document.getElementById(
+                    'playerCount'
+                );
+
+            if (playerSelect) {
+                playerSelect.value =
+                    state.playerCount || 4;
+            }
+
+            const courtSelect =
+                document.getElementById(
+                    'courtCount'
+                );
+
+            if (courtSelect) {
+                courtSelect.value =
+                    state.courtCount || 2;
+            }
+
+            // ------------------------------------
+            // 進行モード
+            // ------------------------------------
+            document.body.dataset.progressMode =
+                state.progressMode || 'match';
+
+            // ------------------------------------
+            // 各種状態
+            // ------------------------------------
+            absentPlayers =
+                new Set(
+                    state.absentPlayers || []
+                );
+
+            completedMatches =
+                new Set(
+                    state.completedMatches || []
+                );
+
+            courtProgress =
+                state.courtProgress || {};
+
+            appliedAbsentPlayers =
+                new Set(
+                    state.appliedAbsentPlayers || []
+                );
+
+            pendingAddedPlayers =
+                new Set(
+                    state.pendingAddedPlayers || []
+                );
+
+            newPlayers =
+                new Set(
+                    state.newPlayers || []
+                );
+
+            playerJoinMatch =
+                state.playerJoinMatch || {};
+
+            // ------------------------------------
+            // 試合データ
+            // ------------------------------------
+            matchesData =
+                Array.isArray(state.matchesData)
+                    ? state.matchesData
+                    : [];
+
+            originalMatchesData =
+                Array.isArray(
+                    state.originalMatchesData
+                )
+                    ? state.originalMatchesData
+                    : [];
+
+            baseMatchesData =
+                Array.isArray(
+                    state.baseMatchesData
+                )
+                    ? state.baseMatchesData
+                    : JSON.parse(
+                        JSON.stringify(
+                            originalMatchesData
+                        )
+                    );
+
+            // ------------------------------------
+            // 次の試合への進行情報
+            // ------------------------------------
+            const oldScrollVersion =
+                Number(scrollVersion) || 0;
+
+            const remoteScrollVersion =
+                Number(
+                    state.scrollVersion
+                ) || 0;
+
+            const remoteCurrentMatch =
+                Number(
+                    state.currentMatchNum
+                ) || 1;
+
+            let localCurrentMatch = 1;
+
+            if (
+                matchesData &&
+                matchesData.length > 0
+            ) {
+
+                const pending =
+                    matchesData.find(
+                        m =>
+                            !completedMatches.has(
+                                m.matchNum
+                            ) &&
+                            !m.error
+                    );
+
+                if (pending) {
+                    localCurrentMatch =
+                        Number(
+                            pending.matchNum
+                        ) || 1;
+                }
+            }
+
+            const shouldRemoteScroll =
+                !isInitial &&
+                (
+                    remoteScrollVersion !==
+                        oldScrollVersion ||
+                    remoteCurrentMatch !==
+                        localCurrentMatch
+                );
+
+            scrollVersion =
+                remoteScrollVersion;
+
+            // ------------------------------------
+            // 重複防止
+            // ------------------------------------
+            ensureUniquePlayersAllMatches(
+                matchesData
+            );
+
+            ensureUniquePlayersAllMatches(
+                originalMatchesData
+            );
+
+            ensureUniquePlayersAllMatches(
+                baseMatchesData
+            );
+
+            // ------------------------------------
+            // 受信した状態を記録
+            // ------------------------------------
+            lastServerJson =
+                jsonStr;
+
+            // ------------------------------------
+            // 画面更新
+            // ------------------------------------
+            renderSelectors();
+
+            setProgressMode(
+                state.progressMode || 'match',
+                false
+            );
+
+            renderMatches(
+                isInitial ||
+                shouldRemoteScroll
+            );
+
+            initialLoadCompleted = true;
+
+        } finally {
+
+            isApplyingServerState =
+                false;
+        }
+    })
+    .catch(error => {
+
+        console.error(
+            'サーバー状態の取得に失敗:',
+            error
+        );
+
+        loadInFlight = false;
+
+        if (isInitial) {
+            showLoading(false);
+        }
+
+        initialLoadCompleted = true;
+    });
+}
 
 
 
