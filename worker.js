@@ -1,2240 +1,268 @@
+const DEFAULT_KEY = "badminton:main";
 
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>バドミントン 組み合わせ管理</title>
-    <style>
-        :root {
-            --primary-color: #0f172a;
-            --accent-color: #059669;
-            --active-color: #047857;
-            --highlight-color: #d97706;
-            --bg-color: #cbd5e1;
-            --card-bg: #ffffff;
-            --text-color: #0f172a;
-            --border-color: #475569;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html, body {
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            padding: 12px;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 2.6rem;
-            color: var(--primary-color);
-            margin: 8px 0 16px 0;
-            font-weight: 900;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-            border: 4px solid var(--border-color);
-            width: 100%;
-        }
-
-        .card h2 {
-            font-size: 1.8rem;
-            margin: 0;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-weight: 900;
-        }
-
-        details.accordion {
-            background-color: #fef9c3;
-            border-radius: 20px;
-            padding: 20px 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-            border: 4px solid #ca8a04;
-            font-family: inherit;
-        }
-
-        details.accordion summary {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: #713f12;
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-family: inherit;
-        }
-
-        details.accordion summary::-webkit-details-marker {
-            display: none;
-        }
-
-        details.accordion summary::after {
-            content: "▼";
-            font-size: 1.4rem;
-            color: #a16207;
-            transition: transform 0.2s;
-        }
-
-        details.accordion[open] summary::after {
-            transform: rotate(180deg);
-        }
-
-        details.accordion[open] summary {
-            margin-bottom: 20px;
-            border-bottom: 3px solid #fde047;
-            padding-bottom: 14px;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        label {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: #713f12;
-            font-family: inherit;
-        }
-
-        select {
-            width: 100%;
-            padding: 16px 8px;
-            border: 4px solid #ca8a04;
-            border-radius: 16px;
-            font-size: 1.9rem;
-            font-weight: 900;
-            text-align: center;
-            background-color: #fff;
-            color: #0f172a;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 18px;
-            background-color: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-size: 1.6rem;
-            font-weight: 900;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            font-family: inherit;
-        }
-
-        .btn:active {
-            background-color: #1d4ed8;
-        }
-
-        .sub-note {
-            text-align: center;
-            font-size: 1.3rem;
-            font-weight: 900;
-            color: #854d0e;
-            margin-top: 8px;
-            margin-bottom: 20px;
-        }
-
-        .btn-add-player {
-            background-color: var(--accent-color);
-            color: white;
-            font-size: 1.6rem;
-            font-weight: 900;
-            padding: 16px;
-            border-radius: 16px;
-            border: none;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            width: 100%;
-            margin-top: 10px;
-            margin-bottom: 16px;
-        }
-
-        .btn-add-player:active {
-            background-color: var(--active-color);
-        }
-
-        .btn-danger {
-            background-color: #dc2626;
-            margin-top: 14px;
-        }
-
-        .btn-danger:active {
-            background-color: #991b1b;
-        }
-
-        .grid-selector {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .num-btn {
-            height: 70px;
-            border: 4px solid var(--border-color);
-            background: #f8fafc;
-            border-radius: 16px;
-            font-size: 2.2rem;
-            font-weight: 900;
-            color: #0f172a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .num-btn.my-active {
-            background-color: var(--highlight-color);
-            border-color: #78350f;
-            color: #ffffff;
-            box-shadow: 0 6px 12px rgba(217, 119, 6, 0.6);
-        }
-
-        .my-number-card {
-            padding: 12px 18px;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-        }
-
-        .my-number-card h2 {
-            margin: 0;
-            white-space: nowrap;
-        }
-
-        .my-number-select {
-            width: 220px;
-            padding: 9px 14px;
-            font-size: 1.2rem;
-            font-weight: 800;
-            border: 3px solid var(--highlight-color);
-            border-radius: 12px;
-            background: #fff;
-            color: var(--text-color);
-        }
-
-        .num-btn.absent-active {
-            background-color: #dc2626;
-            border-color: #7f1d1d;
-            color: #ffffff;
-        }
-
-        .num-btn {
-            position: relative;
-        }
-        .num-btn-main {
-            line-height: 1;
-        }
-        .new-player-mark {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            min-width: 42px;
-            padding: 5px 7px 4px;
-            border: 2px solid #1d4ed8;
-            border-radius: 8px;
-            background: #2563eb;
-            color: #ffffff;
-            font-size: .82rem;
-            font-weight: 1000;
-            line-height: 1;
-            letter-spacing: .7px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,.18);
-            pointer-events: none;
-        }
-        .num-btn.absent-active .new-player-mark {
-            background: #ffffff;
-            border-color: #ffffff;
-            color: #dc2626;
-        }
-
-
-
-
-.matches-frame {
-    height: 1100px;
-    min-height: 0;
-    max-height: 1100px;
-    overflow-y: auto;
-    border: 4px solid var(--border-color);
-    border-radius: 20px;
-    padding: 20px 26px;
-    background-color: #94a3b8;
-    box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.2);
-    scroll-behavior: smooth;
-    margin-bottom: 24px;
-    position: relative;
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+  };
 }
 
-
-
-        .match-card {
-            background: #fff;
-            border-radius: 20px;
-            padding: 28px 14px 18px 14px;
-            margin-top: 34px;
-            margin-bottom: 34px;
-            border: 4px solid var(--border-color);
-            transition: all 0.3s ease;
-            position: relative;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .match-card:first-child {
-            margin-top: 24px;
-        }
-
-        .match-card:last-child {
-            margin-bottom: 24px;
-        }
-
-        .match-card.current-match {
-            border-color: var(--accent-color);
-            border-width: 6px;
-            box-shadow: 0 0 0 8px rgba(5, 150, 105, 0.35);
-            background-color: #f0fdf4;
-        }
-
-        .match-card.current-match::before {
-            content: "MATCH";
-            position: absolute;
-            top: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--accent-color);
-            color: white;
-            font-size: 2.55rem;
-            font-weight: 1000;
-            line-height: 1;
-            padding: 9px 28px;
-            animation: matchPulse 1.8s ease-in-out infinite;
-            border-radius: 16px;
-            letter-spacing: 2px;
-            box-shadow: 0 5px 14px rgba(0, 0, 0, 0.22);
-            z-index: 20;
-            border: 4px solid #ffffff;
-            white-space: nowrap;
-        }
-
-        @keyframes matchPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.55; transform: scale(1.03); }
-        }
-
-
-
-        /* 試合予定をバドミントンコート風に見せる */
-        .schedule-courts {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 18px;
-            align-items: stretch;
-        }
-        .schedule-court {
-            background: #f8fafc;
-            border: 3px solid #cbd5e1;
-            border-radius: 16px;
-            padding: 10px;
-        }
-        .schedule-court {
-            display: grid;
-            grid-template-columns: 128px 1fr;
-            gap: 12px;
-            align-items: stretch;
-        }
-        .court-info-panel { display:flex; align-items:center; justify-content:center; min-height:250px; border:2px solid #cbd5e1; border-radius:12px; overflow:hidden; background:#f8fafc; text-align:center; }
-        .court-info-main { display:flex; align-items:center; justify-content:center; flex-direction:column; line-height:1.05; color:#334155; background:#f8fafc; width:100%; height:100%; }
-        /* A/Bコートを一目で判別できるよう、左のコート名ブロックを少し濃いめに色分け */
-        .schedule-court.court-a .court-info-panel { background:#dbeafe; border-color:#93c5fd; }
-        .schedule-court.court-a .court-info-main { background:#dbeafe; }
-        .schedule-court.court-b .court-info-panel { background:#dcfce7; border-color:#86efac; }
-        .schedule-court.court-b .court-info-main { background:#dcfce7; }
-        .court-info-main .court-letter { display:block !important; font-size:2.8rem !important; font-weight:1000 !important; white-space:normal !important; color:#0f172a !important; writing-mode:vertical-rl !important; text-orientation:upright !important; letter-spacing:.08em; line-height:1.05; }
-        .court-info-main .court-match-no { font-size:1.15rem; font-weight:900; color:#475569; margin-top:10px; }
-        .court-info-main .court-word, .court-info-main .court-line { display:none; }
-        .court-side-label { display:none; }
-        .court-label { display:none; }
-        .court-display { min-width:0; }
-        .schedule-court > .read-aloud-btn { grid-column:2; }
-        .schedule-court > .match-actions { grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; box-sizing:border-box; align-items:stretch; margin-top:0; }
-        .badminton-court {
-            position: relative;
-            min-height: 250px;
-            border: 3px solid #64748b;
-            border-radius: 8px;
-            background: #eef2f7;
-            display: grid;
-            grid-template-columns: 1fr 12px 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
-            overflow: hidden;
-            padding: 18px 28px;
-        }
-        /* バドミントンコート：中央ネット＋左右を横切る中央サービスライン */
-        .badminton-court::before {
-            content: '';
-            position: absolute;
-            left: 0; right: 0; top: 50%;
-            height: 2px;
-            background: #94a3b8;
-            transform: translateY(-50%);
-            z-index: 1;
-        }
-        .court-side {
-            display: contents;
-        }
-        .court-side.left .court-num:nth-child(1) { grid-column:1; grid-row:1; }
-        .court-side.left .court-dash { grid-column:1; grid-row:2; }
-        .court-side.left .court-num:nth-child(3) { grid-column:1; grid-row:3; }
-        .court-side.right .court-num:nth-child(1) { grid-column:3; grid-row:1; }
-        .court-side.right .court-dash { grid-column:3; grid-row:2; }
-        .court-side.right .court-num:nth-child(3) { grid-column:3; grid-row:3; }
-        .court-divider {
-            grid-column: 2; grid-row: 1 / 4;
-            background: #334155;
-            width: 12px;
-            justify-self: center;
-            height: 100%;
-            z-index: 2;
-        }
-        .court-num { position:relative; display:flex; align-items:center; justify-content:center; z-index:3; min-height:74px; }
-        .court-side.right .court-num { position:relative; min-height:74px; }
-        .court-side.right .court-num .num-badge { position:relative; z-index:3; }
-        .court-side-label { display:none !important; }
-        .court-guide { display:none !important; }
-        .court-header { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 4px 8px; }
-        .court-header-title { font-weight:900; font-size:2.2rem; color:#0f172a; white-space:nowrap; }
-        .court-header-guide { margin-left:auto; text-align:right; font-size:1.05rem; font-weight:900; color:#475569; white-space:nowrap; }
-        .court-dash { display:none; }
-        .badminton-court .num-badge { flex-shrink: 0; aspect-ratio: 1 / 1; }
-        .schedule-card { padding-top: 30px; }
-        .schedule-card .num-badge { width: 52px; height: 52px; flex-basis: 52px; font-size: 1.75rem; border-width: 3px; }
-        .schedule-card .match-header { margin-bottom: 8px; }
-        .court-match-no { font-size: .95em; font-weight: 800; color:#475569; }
-        .court-progress-card { padding-top: 30px; }
-        .court-progress-card .next-match-btn { margin-top: 12px; }
-        .mode-buttons { display:flex; gap:12px; margin-top:12px; }
-
-.schedule-heading {
-    margin: 24px 0 12px 4px;
-    font-weight: 900;
-    font-size: 1.8rem;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...corsHeaders(),
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
 }
 
-.schedule-mode-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 10px;
-    background: var(--accent-color);
-    color: #ffffff;
-    font-size: 1.1rem;
-    font-weight: 900;
-    vertical-align: middle;
-}
-
-.schedule-mode-badge.court-mode {
-    background: #2563eb;
-}
-
-
-        .mode-btn { flex:1; min-height:58px; border:3px solid #94a3b8; border-radius:14px; background:#fff; color:#334155; font-size:1.25rem; font-weight:900; cursor:pointer; padding:10px; }
-        .mode-btn.selected { background:var(--accent-color); color:#fff; border-color:#047857; box-shadow:0 4px 10px rgba(0,0,0,.18); }
-        .next-match-note { text-align:center; margin-top:8px; color:#475569; font-weight:800; font-size:1.05rem; }
-        .court-progress-grid { display:grid; grid-template-columns:1fr; gap:24px; }
-        .court-progress-grid .match-card { margin:36px 0 48px; }
-        .match-card { min-height:220px; }
-        .current-match.schedule-card { min-height:350px; margin-top:42px; margin-bottom:42px; }
-        .current-match .match-header { margin-bottom: 4px; }
-        .current-match .schedule-court { padding: 6px; }
-        .current-match .badminton-court { min-height: 190px; }
-        .preview-match-card { opacity:.78; transform:scale(.97); }
-        .preview-match-card .next-match-btn { display:none; }
-        .preview-match-card .schedule-court { padding:8px; }
-        .current-match .num-badge { width:82px; height:82px; flex-basis:82px; font-size:3rem; border-width:5px; }
-        .match-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; width:100%; box-sizing:border-box; }
-        .schedule-court .match-actions { grid-template-columns:1fr 1fr; align-items:stretch; }
-        .match-actions .read-aloud-btn, .match-actions .next-match-btn { width:100%; margin:0; }
-        .read-aloud-btn { padding:14px 10px; border:3px solid #475569; border-radius:12px; background:#fff; font-size:1.55rem; font-weight:900; cursor:pointer; min-height:58px; }
-        .past-match-card { cursor:pointer; }
-        .match-card.done-match {
-            opacity: 0.55;
-            background-color: #e2e8f0;
-            border-color: #64748b;
-            filter: grayscale(40%);
-        }
-
-        .match-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .checkbox-wrapper {
-            position: relative;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .match-checkbox {
-            width: 44px;
-            height: 44px;
-            accent-color: var(--accent-color);
-            cursor: pointer;
-            z-index: 2;
-        }
-
-        .match-checkbox:not(:checked) {
-            appearance: none;
-            -webkit-appearance: none;
-            border: 4px solid var(--border-color);
-            border-radius: 10px;
-            background-color: #fff;
-            position: relative;
-        }
-
-        .match-checkbox:not(:checked)::after {
-            content: "✓";
-            position: absolute;
-            color: #cbd5e1;
-            font-size: 1.8rem;
-            font-weight: 900;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .match-title {
-            font-weight: 900;
-            font-size: 2.2rem;
-            color: var(--primary-color);
-        }
-
-        .court-container {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .court-box {
-            background-color: #ffffff;
-            padding: 14px 18px;
-            border-radius: 18px;
-            border: 4px solid #475569;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .court-label { display:none !important; }
-
-        .teams-wrapper {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            flex-grow: 1;
-            gap: 12px;
-        }
-
-        .vs {
-            color: #dc2626;
-            font-weight: 900;
-            font-size: 1.8rem;
-            margin: 0 8px;
-        }
-
-        .rest-box {
-            margin-top: 16px;
-            padding: 14px 18px;
-            background-color: #f1f5f9;
-            border-radius: 16px;
-            font-size: 1.5rem;
-            font-weight: 900;
-            color: #334155;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border: 3px solid #cbd5e1;
-            flex-wrap: wrap;
-        }
-
-        .num-badge {
-            display: inline-flex;
-            flex: 0 0 68px;
-            align-items: center;
-            justify-content: center;
-            width: 68px;
-            height: 68px;
-            border-radius: 50%;
-            aspect-ratio: 1 / 1;
-            background-color: #f1f5f9;
-            color: #0f172a;
-            font-weight: 900;
-            font-size: 2.3rem;
-            border: 4px solid #334155;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .num-badge.my-num {
-            background-color: var(--highlight-color) !important;
-            color: #ffffff !important;
-            border-color: #78350f !important;
-            transform: scale(1.1);
-            box-shadow: 0 0 16px rgba(217, 119, 6, 0.85);
-        }
-
-        .rest-box .num-badge {
-            width: 44px;
-            height: 44px;
-            font-size: 1.45rem;
-            border-width: 3px;
-        }
-
-        .next-match-btn {
-            width: 100%;
-            margin-top: 22px;
-            padding: 20px 16px;
-            border: none;
-            border-radius: 16px;
-            background: #2563eb;
-            color: white;
-            font-size: 1.7rem;
-            font-weight: 900;
-            cursor: pointer;
-            box-shadow: 0 5px 10px rgba(0,0,0,.22);
-        }
-
-        .next-match-btn:active { background:#1d4ed8; transform:scale(.98); }
-
-        .sub-text {
-            font-size: 1.2rem;
-            color: #475569;
-            font-weight: normal;
-        }
-
-        .youtube-card {
-            background: linear-gradient(135deg, #ff0000, #cc0000);
-            color: white;
-            border-radius: 20px;
-            padding: 20px;
-            margin-top: 30px;
-            margin-bottom: 30px;
-            text-align: center;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
-            border: 4px solid #990000;
-        }
-
-        .youtube-card h3 {
-            margin: 0 0 8px 0;
-            font-size: 1.8rem;
-            font-weight: 900;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .youtube-card p {
-            margin: 0 0 16px 0;
-            font-size: 1.2rem;
-            opacity: 0.95;
-            font-weight: bold;
-        }
-
-        .youtube-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            background-color: #ffffff;
-            color: #cc0000;
-            font-size: 1.5rem;
-            font-weight: 900;
-            padding: 14px 28px;
-            border-radius: 50px;
-            text-decoration: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
-        }
-
-        .youtube-btn:active {
-            transform: scale(0.96);
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.85);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: 900;
-            z-index: 999;
-        }
-
-        /* スマホ：PC版の800pxレイアウトを比例縮小する。
-           transformはスマホのselect等のタッチ操作を壊すことがあるため使用しない。
-           zoomでレイアウト自体を縮小し、フォーム部品の操作性を維持する。 */
-        #appScale {
-            width: 100%;
-            margin: 0 auto;
-        }
-        @media (max-width: 800px) {
-            html, body {
-                overflow-x: hidden;
-            }
-            body {
-                width: 100%;
-                max-width: none;
-                margin: 0;
-                padding: 0 16px;
-                box-sizing: border-box;
-            }
-            #appScale {
-                width: 800px;
-                max-width: none;
-                margin: 0;
-                padding: 12px;
-                box-sizing: border-box;
-                zoom: var(--mobile-scale, 1);
-            }
-            .matches-frame {
-                height: 900px;
-                max-height: 900px;
-            }
-        }
-
-    </style>
-</head>
-<body>
-
-    <div id="appScale">
-    <div class="loading-overlay" id="loading">データ更新中...</div>
-
-    <h1>🏸 バドミントン 組み合わせ表</h1>
-
-    <!-- 1. 人数変更・コート設定（管理用） -->
-    <details class="accordion" id="initialConfigAccordion">
-        <summary>⚙️ 人数変更・コート設定（管理用）</summary>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="playerCount">人数</label>
-                <select id="playerCount"></select>
-            </div>
-            <div class="form-group">
-                <label for="courtCount">コート数</label>
-                <select id="courtCount">
-                    <option value="1">1面</option>
-                    <option value="2" selected>2面</option>
-                    <option value="3">3面</option>
-                </select>
-            </div>
-        </div>
-
-        <button class="btn" onclick="createNewSchedule()">今日の組み合わせ作成</button>
-        <div class="sub-note">※早上がり・追加の変更は下から</div>
-
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #cbd5e1;">
-            <h2 style="margin:0 0 8px;">🎮 試合モード</h2>
-            <div class="mode-buttons" id="progressModeButtons">
-                <button type="button" class="mode-btn" data-mode="match" onclick="setProgressMode('match')">通常モード</button>
-                <button type="button" class="mode-btn" data-mode="court" onclick="setProgressMode('court')">コート別モード</button>
-            </div>
-        </div>
-
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 2px dashed #ca8a04;">
-            <label style="font-size: 1.5rem; color: #713f0e; font-weight: 900;">🏃 早上がり設定</label>
-            <div style="font-size: 1.15rem; color: #854d0e; margin-top: 4px; margin-bottom: 10px; font-weight: bold;">
-                赤色＝早上がり。設定しただけでは組み合わせを変更しません。試合終了後、次の試合にその番号が入る場合だけ再編成します。
-            </div>
-            <div class="grid-selector" id="absentContainer"></div>
-            <div style="margin-top: 20px;">
-                <button class="btn-add-player" onclick="addExtraPlayer()">➕ 1人増やす（途中参加を追加）</button>
-            </div>
-        </div>
-
-    </details>
-
-    <!-- 2. 自分の番号設定 -->
-    <div class="card my-number-card" style="border-left: 12px solid var(--highlight-color);">
-        <h2>⭐ 自分の番号をマーク</h2>
-        <select id="myNumberSelect" class="my-number-select" onchange="selectMyNumber(parseInt(this.value) || null)">
-            <option value="">選択してください</option>
-        </select>
-    </div>
-
-    <!-- 3. 試合スケジュール -->
-
-<div class="schedule-heading">
-    <div>
-        📋 試合スケジュール
-        <span id="scheduleModeBadge" class="schedule-mode-badge">通常モード</span>
-    </div>
-    <span class="sub-text">（試合終了後に「次の試合へ」）</span>
-</div>
-
-
-    <div id="matchesFrame" class="matches-frame">
-        <div id="matchList"></div>
-    </div>
-
-    <!-- 4. YouTube バナー -->
-    <div class="youtube-card">
-        <h3>▶️ MACKY PAZOO YouTube</h3>
-        <p>バドミントン動画配信中！チャンネルチェックをお願いします！</p>
-        <a href="https://www.youtube.com/@MACKYPAZOO/videos" target="_blank" rel="noopener noreferrer" class="youtube-btn">
-            🎬 チャンネルを見る
-        </a>
-    </div>
-
-    <script>
-        let myNumber = localStorage.getItem('badminton_my_num') ? parseInt(localStorage.getItem('badminton_my_num')) : null;
-        let absentPlayers = new Set();
-        let matchesData = [];         
-        let originalMatchesData = []; 
-        let completedMatches = new Set();
-        let currentMaxPlayers = 4;
-        let lastServerJson = "";
-        let serverRevision = 0;
-        let saveInFlight = false;
-        let saveQueued = false;
-        let saveConflictAlerted = false;
-        let courtProgress = {};
-        let appliedAbsentPlayers = new Set();
-        let baseMatchesData = []; // 早上がり変更前の基準スケジュール
-        let pendingAddedPlayers = new Set();
-        // 途中参加者のNEW表示。初回参加が確定するまで保持する。
-        let newPlayers = new Set();
-        // 各参加者が参加可能になった試合番号（途中参加対応）
-        let playerJoinMatch = {};
-        let scheduleDate = null;
-        let scrollVersion = 0;
-        let matchTimes = {};
-        const SCHEDULE_MATCH_COUNT = 100;
-
-
-let isInteracting = false;
-let interactTimer = null;
-let saveTimer = null;
-let loadInFlight = false;
-let initialLoadCompleted = false;
-let conflictRetrying = false;
-
-// サーバーから受信した状態を反映中かどうか
-let isApplyingServerState = false;
-        
-
-        const courtNames = ["Ａコート", "Ｂコート", "Ｃコート", "Ｄコート", "Ｅコート"];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            fitMobileScale();
-            initSelectOptions();
-            currentMaxPlayers = parseInt(document.getElementById('playerCount').value);
-            document.body.dataset.progressMode = 'match';
-            renderSelectors();
-
-            document.getElementById('playerCount').addEventListener('change', (e) => {
-                currentMaxPlayers = parseInt(e.target.value);
-                markInteraction();
-                renderSelectors();
-            });
-
-            document.getElementById('courtCount').addEventListener('change', markInteraction);
-
-            loadServerState(true);
-
-            // InfinityFreeのHits制限対策：サーバー確認は10秒間隔。
- setInterval(() => {
-    // 読み込み・保存中は重複通信を発生させない
-    if (!loadInFlight) {
-        loadServerState(false);
-    }
-}, 2000);
-        });
-
-        function markInteraction() {
-            isInteracting = true;
-            if (interactTimer) clearTimeout(interactTimer);
-            interactTimer = setTimeout(() => {
-                isInteracting = false;
-            }, 2000);
-        }
-
-        function showLoading(show) {
-            document.getElementById('loading').style.display = show ? 'flex' : 'none';
-        }
-
-        // スマホでは800pxのPCレイアウト全体を比例縮小。transformを使わないのでselectも操作可能。
-        function fitMobileScale() {
-            const designWidth = 800;
-            const availableWidth = Math.max(320, window.innerWidth - 32);
-            const scale = Math.min(1, availableWidth / designWidth);
-            document.documentElement.style.setProperty('--mobile-scale', String(scale));
-        }
-
-        window.addEventListener('resize', fitMobileScale);
-        window.addEventListener('orientationchange', () => setTimeout(fitMobileScale, 100));
-
-        function initSelectOptions() {
-            const playerSelect = document.getElementById('playerCount');
-            playerSelect.innerHTML = '';
-            for (let i = 4; i <= 30; i++) {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = i + '人';
-                if (i === 4) opt.selected = true;
-                playerSelect.appendChild(opt);
-            }
-        }
-
-        function generateFairFutureFromLocked(startNum, locked, active, guaranteedFirstPlayers = new Set()) {
-            const courtCount = parseInt(document.getElementById('courtCount').value);
-            const pc = {}, lp = {}, ph = {};
-            for (let i = 1; i <= currentMaxPlayers; i++) {
-                pc[i] = 0;
-                lp[i] = -999;
-            }
-
-            locked.forEach(m => (m.courts || []).forEach(c => {
-                [...c.teamA, ...c.teamB].forEach(p => {
-                    pc[p] = (pc[p] || 0) + 1;
-                    lp[p] = Math.max(lp[p] ?? -999, m.matchNum);
-                });
-                [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].forEach(k => {
-                    ph[k] = (ph[k] || 0) + 1;
-                });
-            }));
-
-            const out = [];
-            const activeSet = new Set(active);
-            const guaranteed = new Set([...guaranteedFirstPlayers].filter(p => activeSet.has(p)));
-
-            for (let m = startNum; m <= SCHEDULE_MATCH_COUNT; m++) {
-                let selected;
-
-                if (m === startNum && guaranteed.size > 0) {
-                    // 追加者は「次の1試合」だけ参加を保証する。
-                    // 残りは、これまでの出場回数・直前出場を普通に評価して選ぶ。
-                    const forced = [...guaranteed].slice(0, courtCount * 4);
-                    const remaining = active.filter(p => !forced.includes(p))
-                        .map(p => ({
-                            p,
-                            s: ((pc[p] || 0) / Math.max(1, m - (playerJoinMatch[p] || 1) + 1)) * 1000 + (lp[p] === m - 1 ? 120 : 0) + Math.random() * 20
-                        }))
-                        .sort((a, b) => a.s - b.s);
-                    selected = forced.concat(remaining.slice(0, courtCount * 4 - forced.length).map(x => x.p));
-                } else {
-                    const scored = active.map(p => ({
-                        p,
-                        s: ((pc[p] || 0) / Math.max(1, m - (playerJoinMatch[p] || 1) + 1)) * 1000 + (lp[p] === m - 1 ? 120 : 0) + Math.random() * 20
-                    })).sort((a, b) => a.s - b.s);
-                    selected = scored.slice(0, courtCount * 4).map(x => x.p);
-                }
-
-                const courts = makeFairCourts(selected, courtCount, ph, out[out.length - 1] || locked[locked.length - 1]);
-                const playing = new Set();
-                courts.forEach(c => [...c.teamA, ...c.teamB].forEach(p => {
-                    playing.add(p);
-                    pc[p] = (pc[p] || 0) + 1;
-                    lp[p] = m;
-                }));
-                out.push({
-                    matchNum: m,
-                    courts,
-                    resting: active.filter(p => !playing.has(p)).sort((a, b) => a - b)
-                });
-            }
-            return out;
-        }
-
-        function nextMatchNumberForJoin() {
-            return getCurrentMatchNum() + 1;
-        }
-
-        function addExtraPlayer() {
-            markInteraction();
-            if (currentMaxPlayers >= 30) return;
-            currentMaxPlayers++;
-
-            const addedPlayer = currentMaxPlayers;
-            const playerSelect = document.getElementById('playerCount');
-            let exists = Array.from(playerSelect.options).some(opt => parseInt(opt.value) === addedPlayer);
-            if (!exists) {
-                const opt = document.createElement('option');
-                opt.value = addedPlayer;
-                opt.textContent = addedPlayer + '人';
-                playerSelect.appendChild(opt);
-            }
-            playerSelect.value = addedPlayer;
-
-            absentPlayers.delete(addedPlayer);
-            pendingAddedPlayers.add(addedPlayer);
-            newPlayers.add(addedPlayer);
-            playerJoinMatch[addedPlayer] = nextMatchNumberForJoin();
-
-            // 途中参加者は「次の1試合だけ参加保証」。
-            // その後は通常の公平ロジックに戻し、既存参加者の出場回数はリセットしない。
-            const nextNum = getCurrentMatchNum() + 1;
-            if (matchesData.some(m => m.matchNum === nextNum)) {
-                const locked = matchesData.filter(m => m.matchNum < nextNum);
-                const active = [];
-                for (let i = 1; i <= currentMaxPlayers; i++) {
-                    if (!absentPlayers.has(i)) active.push(i);
-                }
-                const future = generateFairFutureFromLocked(nextNum, locked, active, new Set([addedPlayer]));
-                matchesData = [...locked, ...future];
-                originalMatchesData = JSON.parse(JSON.stringify(matchesData));
-                baseMatchesData = JSON.parse(JSON.stringify(matchesData));
-                pendingAddedPlayers.clear();
-            }
-
-            renderSelectors();
-            renderMatches(true);
-            saveServerState();
-        }
-
-        function renderSelectors() {
-            const mySelect = document.getElementById('myNumberSelect');
-            if (mySelect) {
-                mySelect.innerHTML = '<option value="">選択してください</option>';
-                for (let i = 1; i <= currentMaxPlayers; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = newPlayers.has(i) ? i + '番　NEW' : i + '番';
-                    if (myNumber === i) opt.selected = true;
-                    mySelect.appendChild(opt);
-                }
-            }
-
-            const absentContainer = document.getElementById('absentContainer');
-            absentContainer.innerHTML = '';
-            for (let i = 1; i <= currentMaxPlayers; i++) {
-                const btn = document.createElement('button');
-                btn.className = `num-btn ${absentPlayers.has(i) ? 'absent-active' : ''}`;
-                btn.innerHTML = `<span class="num-btn-main">${i}</span>${newPlayers.has(i) ? '<span class="new-player-mark">NEW</span>' : ''}`;
-                btn.onclick = () => toggleAbsent(i);
-                absentContainer.appendChild(btn);
-            }
-        }
-
-        // 現在MATCHとして実際に表示されている試合に初参加した番号だけNEWを消す。
-        // 表示だけではなく「次の試合へ」で現在MATCHになった時点を参加確定とする。
-        function clearNewPlayersForMatch(matchNum) {
-            const match = matchesData.find(m => m.matchNum === matchNum);
-            if (!match || !match.courts) return false;
-            const playing = new Set();
-            match.courts.forEach(c => [...c.teamA, ...c.teamB].forEach(p => playing.add(p)));
-            let changed = false;
-            [...newPlayers].forEach(p => {
-                if (playing.has(p)) {
-                    newPlayers.delete(p);
-                    changed = true;
-                }
-            });
-            return changed;
-        }
-
-        function selectMyNumber(num) {
-            markInteraction();
-            if (!num) {
-                myNumber = null;
-                localStorage.removeItem('badminton_my_num');
-            } else {
-                myNumber = num;
-                localStorage.setItem('badminton_my_num', num);
-            }
-            renderSelectors();
-            renderMatches(false);
-        }
-        function toggleAbsent(num) {
-            markInteraction();
-            if (absentPlayers.has(num)) {
-                absentPlayers.delete(num);
-                appliedAbsentPlayers.delete(num);
-            } else {
-                absentPlayers.add(num);
-                appliedAbsentPlayers.delete(num);
-            }
-
-            // 早上がりを設定した時点で、次の予定試合以降を再組み合わせする。
-            // 早上がり番号を既存の組み合わせから単純に差し替えるのではなく、
-            // 次の試合以降を「早上がり後の人数」で組み直す。
-            const currentNum = getCurrentMatchNum();
-            const nextNum = currentNum + 1;
-            if (matchesData.some(m => m.matchNum >= nextNum)) {
-                rebuildFutureFrom(nextNum);
-                appliedAbsentPlayers = new Set(absentPlayers);
-            }
-            renderSelectors();
-            renderMatches(false);
-            scheduleStateSave();
-        }
-
-        function scheduleStateSave() {
-            if (saveTimer) clearTimeout(saveTimer);
-            saveTimer = setTimeout(() => {
-                saveTimer = null;
-                saveServerState();
-            }, 350);
-        }
-
-function updateScheduleModeBadge(mode) {
-    const badge = document.getElementById('scheduleModeBadge');
-    if (!badge) return;
-
-    const isCourtMode = mode === 'court';
-
-    badge.textContent = isCourtMode ? 'コート別モード' : '通常モード';
-    badge.classList.toggle('court-mode', isCourtMode);
-}
-
-
-function setProgressMode(mode, persist = true) {
-    if (persist) markInteraction();
-    document.body.dataset.progressMode = mode;
-
-    updateScheduleModeBadge(mode);
-
-    const buttons = document.querySelectorAll('#progressModeButtons .mode-btn');
-    buttons.forEach(btn => btn.classList.toggle('selected', btn.dataset.mode === mode));
-    renderMatches(false);
-    if (persist) saveServerState();
-}
-
-
-
-
-        function getTodayKey() {
-            return new Intl.DateTimeFormat('en-CA', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }).format(new Date());
-        }
-
-        function createNewSchedule() {
-            markInteraction();
-            if (!confirm('今日の組み合わせを作成しますか？現在の進行状態はリセットされます。')) return;
-            completedMatches.clear();
-            appliedAbsentPlayers.clear();
-            matchTimes = {};
-            pendingAddedPlayers.clear();
-            newPlayers.clear();
-            courtProgress = {};
-            document.body.dataset.progressMode = 'match';
-            setProgressMode('match', false);
-            scheduleDate = getTodayKey();
-            scrollVersion++;
-            generateFullSchedule();
-            document.getElementById('initialConfigAccordion').removeAttribute('open');
-        }
-
-        function pairKey(a,b){const x=Math.min(a,b),y=Math.max(a,b);return x+'-'+y;}
-        function makeFairCourts(selected,courtCount,pairHistory,prev){
-            const pool=[...selected], courts=[];
-            for(let c=0;c<courtCount;c++){ let best=null,bs=Infinity; for(let t=0;t<100;t++){ const q=[...pool].sort(()=>Math.random()-.5).slice(0,4); let sc=(pairHistory[pairKey(q[0],q[1])]||0)*20+(pairHistory[pairKey(q[2],q[3])]||0)*20; const pc=prev?.courts?.[c]; if(pc){const ids=new Set([...pc.teamA,...pc.teamB]);q.forEach(x=>{if(ids.has(x))sc+=2;});} if(sc<bs){bs=sc;best=q;} } const used=new Set(best); pool.splice(0,pool.length,...pool.filter(x=>!used.has(x))); courts.push({courtNum:c+1,teamA:[best[0],best[1]],teamB:[best[2],best[3]]}); [pairKey(best[0],best[1]),pairKey(best[2],best[3])].forEach(k=>pairHistory[k]=(pairHistory[k]||0)+1); } return courts;
-        }
-        function generateFullSchedule(){
-            const courtCount=parseInt(document.getElementById('courtCount').value), active=[];
-            playerJoinMatch = {};
-            for (let i = 1; i <= currentMaxPlayers; i++) playerJoinMatch[i] = 1;
-            for(let i=1;i<=currentMaxPlayers;i++)if(!absentPlayers.has(i))active.push(i);
-            if(active.length<courtCount*4){alert(`コート数が${courtCount}面の場合、早上がりを除いて最低${courtCount*4}人必要です。`);return;}
-            const pc={},lp={},ph={}; for(let i=1;i<=currentMaxPlayers;i++){pc[i]=0;lp[i]=-999;} const out=[];
-            for(let m=1;m<=SCHEDULE_MATCH_COUNT;m++){ const scored=active.map(p=>({p,s:(pc[p]||0)*100+(lp[p]===m-1?60:0)+Math.random()*20})).sort((a,b)=>a.s-b.s); const pool=scored.slice(0,Math.min(active.length,courtCount*4+Math.max(4,Math.floor(active.length/3)))); let best=null,bs=Infinity; for(let t=0;t<80;t++){const q=pool.map(x=>x.p).sort(()=>Math.random()-.5).slice(0,courtCount*4);let z=q.reduce((v,p)=>v+(pc[p]||0)*8+(lp[p]===m-1?80:0),0);if(z<bs){bs=z;best=q;}} const courts=makeFairCourts(best,courtCount,ph,out[m-2]); const playing=new Set();courts.forEach(c=>[...c.teamA,...c.teamB].forEach(p=>{playing.add(p);pc[p]++;lp[p]=m;}));out.push({matchNum:m,courts,resting:active.filter(p=>!playing.has(p)).sort((a,b)=>a-b)}); }
-            originalMatchesData=JSON.parse(JSON.stringify(out));matchesData=JSON.parse(JSON.stringify(out));baseMatchesData=JSON.parse(JSON.stringify(out));ensureUniquePlayersAllMatches(matchesData);ensureUniquePlayersAllMatches(originalMatchesData);ensureUniquePlayersAllMatches(baseMatchesData);renderMatches(true);saveServerState();
-        }
-
-        // 1試合の中で同じ番号がA/Bコートに重複しないよう最終チェックする。
-        // 生成・早上がり変更・途中参加など、どの経路でも必ず8人を重複なしにする。
-        function ensureUniquePlayersInMatch(match) {
-            if (!match || match.error || !match.courts) return false;
-            const courtCount = match.courts.length;
-            const slots = courtCount * 4;
-            const allPlayers = [];
-            for (let p = 1; p <= currentMaxPlayers; p++) {
-                if (!absentPlayers.has(p)) allPlayers.push(p);
-            }
-            if (allPlayers.length < slots) return false;
-
-            const used = new Set();
-            const duplicatePositions = [];
-            match.courts.forEach((c, ci) => {
-                ['teamA','teamB'].forEach(team => {
-                    c[team].forEach((p, pi) => {
-                        if (used.has(p)) duplicatePositions.push({ci, team, pi});
-                        else used.add(p);
-                    });
-                });
-            });
-            if (!duplicatePositions.length) return false;
-
-            const available = allPlayers.filter(p => !used.has(p));
-            duplicatePositions.forEach(pos => {
-                if (!available.length) return;
-                const replacement = available.shift();
-                match.courts[pos.ci][pos.team][pos.pi] = replacement;
-                used.add(replacement);
-            });
-
-            const playing = new Set();
-            match.courts.forEach(c => {
-                [...c.teamA, ...c.teamB].forEach(p => playing.add(p));
-            });
-            match.resting = allPlayers.filter(p => !playing.has(p)).sort((a,b) => a-b);
-            return true;
-        }
-
-        function ensureUniquePlayersAllMatches(data) {
-            if (!Array.isArray(data)) return false;
-            let changed = false;
-            data.forEach(m => { if (ensureUniquePlayersInMatch(m)) changed = true; });
-            return changed;
-        }
-
-        function getCurrentMatchNum() {
-            if (!matchesData || matchesData.length === 0) return 1;
-            if (document.body.dataset.progressMode === 'court') {
-                const vals = [];
-                const courtCount = parseInt(document.getElementById('courtCount').value);
-                for (let c = 1; c <= courtCount; c++) vals.push(courtProgress[c] || 1);
-                return Math.min.apply(null, vals);
-            }
-            const pending = matchesData.find(m => !completedMatches.has(m.matchNum) && !m.error);
-            return pending ? pending.matchNum : matchesData[matchesData.length - 1].matchNum;
-        }
-
-        function matchContainsAbsent(match) {
-            if (!match || !match.courts) return false;
-            const ids = [];
-            match.courts.forEach(c => ids.push(...c.teamA, ...c.teamB));
-            return Array.from(absentPlayers).some(p => ids.includes(p));
-        }
-
-        function rebuildFutureFrom(matchStartNum) {
-            const courtCount = parseInt(document.getElementById('courtCount').value);
-            const baseline = baseMatchesData.length ? baseMatchesData : originalMatchesData;
-            const courtMode = document.body.dataset.progressMode === 'court';
-
-            if (!courtMode) {
-                const locked = matchesData.filter(m => m.matchNum < matchStartNum);
-
-                if (absentPlayers.size === 0 && pendingAddedPlayers.size === 0) {
-                    const future = baseline.filter(m => m.matchNum >= matchStartNum);
-                    matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
-                    return;
-                }
-
-                const future = baseline
-                    .filter(m => m.matchNum >= matchStartNum)
-                    .map(m => ({
-                        matchNum: m.matchNum,
-                        courts: (m.courts || []).map(c => ({
-                            courtNum: c.courtNum,
-                            teamA: [...c.teamA],
-                            teamB: [...c.teamB]
-                        })),
-                        resting: [...(m.resting || [])]
-                    }));
-
-                // 早上がり設定時は、次の試合以降を一から再組み合わせする。
-                // これにより「次の予定試合」に早上がり番号が残ることを防ぐ。
-                if (absentPlayers.size > 0) {
-                    let playCounts = {};
-                    for (let i = 1; i <= currentMaxPlayers; i++) playCounts[i] = 0;
-                    locked.forEach(m => (m.courts || []).forEach(c =>
-                        [...c.teamA, ...c.teamB].forEach(p => {
-                            if (playCounts[p] !== undefined) playCounts[p]++;
-                        })
-                    ));
-
-                    const matchCount = Math.max(SCHEDULE_MATCH_COUNT, baseline.length || 0);
-                    const updated = JSON.parse(JSON.stringify(locked));
-
-                    for (let m = matchStartNum; m <= matchCount; m++) {
-                        let active = [];
-                        for (let i = 1; i <= currentMaxPlayers; i++) {
-                            if (!absentPlayers.has(i)) active.push(i);
-                        }
-                        active.push(...Array.from(pendingAddedPlayers));
-                        active = [...new Set(active)];
-
-                        if (active.length < courtCount * 4) {
-                            updated.push({matchNum:m, error:`人数不足 (${active.length}人)`});
-                            continue;
-                        }
-
-                        active.sort((a,b) =>
-                            playCounts[a] === playCounts[b]
-                                ? Math.random() - 0.5
-                                : playCounts[a] - playCounts[b]
-                        );
-                        const selected = active.slice(0, courtCount * 4);
-                        const resting = active.slice(courtCount * 4).sort((a,b)=>a-b);
-                        selected.forEach(p => { if (playCounts[p] !== undefined) playCounts[p]++; });
-
-                        const shuffled = [...selected].sort(()=>Math.random()-0.5);
-                        const courts = [];
-                        for (let c = 0; c < courtCount; c++) {
-                            const q = shuffled.slice(c * 4, (c + 1) * 4);
-                            courts.push({
-                                courtNum: c + 1,
-                                teamA: [q[0], q[1]],
-                                teamB: [q[2], q[3]]
-                            });
-                        }
-                        updated.push({matchNum:m, courts, resting});
-                    }
-
-                    matchesData = JSON.parse(JSON.stringify(updated));
-                    return;
-                }
-
-                // 途中参加者がいる場合も、既存参加者の出場回数をリセットしない。
-                // 最初の1試合だけ参加を保証し、その後は通常の公平ロジックへ戻す。
-                if (pendingAddedPlayers.size > 0 && absentPlayers.size === 0) {
-                    const active = [];
-                    for (let i = 1; i <= currentMaxPlayers; i++) active.push(i);
-                    const guaranteed = new Set(pendingAddedPlayers);
-                    const future = generateFairFutureFromLocked(matchStartNum, locked, active, guaranteed);
-                    matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
-                    return;
-                }
-
-                future.forEach(match => {
-                    const affectedCourts = match.courts.filter(c =>
-                        [...c.teamA, ...c.teamB].some(p => absentPlayers.has(p))
-                    );
-                    if (affectedCourts.length === 0) return;
-
-                    affectedCourts.forEach(c => {
-                        const players = [...c.teamA, ...c.teamB];
-                        const absentIndexes = players.map((p, i) => absentPlayers.has(p) ? i : -1).filter(i => i >= 0);
-                        const keepSet = new Set(players.filter(p => !absentPlayers.has(p)));
-                        const blocked = new Set();
-                        match.courts.forEach(other => {
-                            if (other.courtNum === c.courtNum) return;
-                            [...other.teamA, ...other.teamB].forEach(p => blocked.add(p));
-                        });
-                        const candidates = [];
-                        (match.resting || []).forEach(p => {
-                            if (!absentPlayers.has(p) && !blocked.has(p) && !keepSet.has(p) && !candidates.includes(p)) candidates.push(p);
-                        });
-                        for (let p = 1; p <= currentMaxPlayers; p++) {
-                            if (absentPlayers.has(p) || blocked.has(p) || keepSet.has(p) || candidates.includes(p)) continue;
-                            candidates.push(p);
-                        }
-                        const replacements = candidates.slice(0, absentIndexes.length);
-                        absentIndexes.forEach((idx, n) => {
-                            if (replacements[n] !== undefined) players[idx] = replacements[n];
-                        });
-                        c.teamA = [players[0], players[1]];
-                        c.teamB = [players[2], players[3]];
-                    });
-
-                    const playing = new Set();
-                    match.courts.forEach(c => {
-                        playing.add(c.teamA[0]); playing.add(c.teamA[1]);
-                        playing.add(c.teamB[0]); playing.add(c.teamB[1]);
-                    });
-                    const allPlayers = [];
-                    for (let p = 1; p <= currentMaxPlayers; p++) if (!absentPlayers.has(p)) allPlayers.push(p);
-                    match.resting = allPlayers.filter(p => !playing.has(p));
-                });
-                matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
-                return;
-            }
-
-            // コート別モード：各コートの現在進行中の試合は触らず、
-            // 「そのコートの次の試合」から早上がりを反映する。
-            const currentByCourt = {};
-            for (let c = 1; c <= courtCount; c++) {
-                currentByCourt[c] = courtProgress[c] || 1;
-            }
-            const minStart = Math.min.apply(null, Object.values(currentByCourt).map(n => n + 1));
-            const first = Math.min(matchStartNum || minStart, minStart);
-            const future = baseline
-                .filter(m => m.matchNum >= first)
-                .map(m => ({
-                    matchNum: m.matchNum,
-                    courts: (m.courts || []).map(c => ({courtNum:c.courtNum, teamA:[...c.teamA], teamB:[...c.teamB]})),
-                    resting: [...(m.resting || [])]
-                }));
-
-            // すでに進行済み／現在進行中のコートは、現在の実データを優先して保持。
-            future.forEach(match => {
-                match.courts.forEach((c, idx) => {
-                    const courtNum = c.courtNum || idx + 1;
-                    const currentNum = currentByCourt[courtNum] || 1;
-                    if (match.matchNum <= currentNum) {
-                        const actual = matchesData.find(m => m.matchNum === match.matchNum)?.courts?.[courtNum - 1];
-                        if (actual) {
-                            c.teamA = [...actual.teamA];
-                            c.teamB = [...actual.teamB];
-                        }
-                        return;
-                    }
-
-                    const players = [...c.teamA, ...c.teamB];
-                    const absentIndexes = players.map((p, i) => absentPlayers.has(p) ? i : -1).filter(i => i >= 0);
-                    if (absentIndexes.length === 0) return;
-
-                    const keepSet = new Set(players.filter(p => !absentPlayers.has(p)));
-                    const blocked = new Set();
-                    match.courts.forEach(other => {
-                        if (other.courtNum === courtNum) return;
-                        const otherCurrent = currentByCourt[other.courtNum] || 1;
-                        if (match.matchNum === otherCurrent) {
-                            [...other.teamA, ...other.teamB].forEach(p => blocked.add(p));
-                        }
-                    });
-                    const candidates = [];
-                    (match.resting || []).forEach(p => {
-                        if (!absentPlayers.has(p) && !blocked.has(p) && !keepSet.has(p) && !candidates.includes(p)) candidates.push(p);
-                    });
-                    for (let p = 1; p <= currentMaxPlayers; p++) {
-                        if (absentPlayers.has(p) || blocked.has(p) || keepSet.has(p) || candidates.includes(p)) continue;
-                        candidates.push(p);
-                    }
-                    absentIndexes.forEach((idx, n) => {
-                        if (candidates[n] !== undefined) players[idx] = candidates[n];
-                    });
-                    c.teamA = [players[0], players[1]];
-                    c.teamB = [players[2], players[3]];
-                });
-
-                const playing = new Set();
-                match.courts.forEach(c => {
-                    playing.add(c.teamA[0]); playing.add(c.teamA[1]);
-                    playing.add(c.teamB[0]); playing.add(c.teamB[1]);
-                });
-                const allPlayers = [];
-                for (let p = 1; p <= currentMaxPlayers; p++) if (!absentPlayers.has(p)) allPlayers.push(p);
-                match.resting = allPlayers.filter(p => !playing.has(p));
-            });
-
-            const preserved = matchesData.filter(m => m.matchNum < first);
-            matchesData = JSON.parse(JSON.stringify([...preserved, ...future]));
-        }
-
-        function applyChangesForNextMatch(currentMatchNum) {
-            const nextNum = currentMatchNum + 1;
-            const next = matchesData.find(m => m.matchNum === nextNum);
-            if (!next) return false;
-
-            const pendingAbsent = Array.from(absentPlayers).filter(p => !appliedAbsentPlayers.has(p));
-            const absentAffectsNext = pendingAbsent.some(p => (next.courts || []).some(c => [...c.teamA, ...c.teamB].includes(p)));
-            const addedPending = pendingAddedPlayers.size > 0;
-
-            if (!absentAffectsNext && !addedPending) return false;
-
-            rebuildFutureFrom(nextNum);
-            appliedAbsentPlayers = new Set(absentPlayers);
-            pendingAddedPlayers.clear();
-            return true;
-        }
-
-        // コート別進行では、A面が先に次へ進んだ際に「B面でまだ試合中の人」を
-        // A面の次試合へ入れない。逆も同様にして、同じ人が同時刻にABへ
-        // 重複する状態を防ぐ。
-        function rebuildCourtNext(courtNum, matchNum) {
-            const courtCount = parseInt(document.getElementById('courtCount').value);
-            const target = matchesData.find(m => m.matchNum === matchNum);
-            if (!target || target.error) return false;
-
-            const blocked = new Set();
-            for (let c = 1; c <= courtCount; c++) {
-                if (c === courtNum) continue;
-                const otherCurrentNum = courtProgress[c] || 1;
-                const other = matchesData.find(m => m.matchNum === otherCurrentNum);
-                const otherCourt = other?.courts?.[c - 1];
-                if (otherCourt) [...otherCourt.teamA, ...otherCourt.teamB].forEach(p => blocked.add(p));
-            }
-
-            const active = [];
-            for (let i = 1; i <= currentMaxPlayers; i++) {
-                if (!absentPlayers.has(i) && !blocked.has(i)) active.push(i);
-            }
-            if (active.length < 4) return false;
-
-            // 直近の出場回数を基準にしつつ、対象コートの直前試合と同じ4人を
-            // そのまま繰り返さないよう少しだけ優先度を下げる。
-            const prev = matchesData.find(m => m.matchNum === matchNum - 1);
-            const prevCourt = prev?.courts?.[courtNum - 1];
-            const prevIds = prevCourt ? new Set([...prevCourt.teamA, ...prevCourt.teamB]) : new Set();
-            const scores = active.map(p => ({ p, repeat: prevIds.has(p) ? 1 : 0, rnd: Math.random() }));
-            scores.sort((a,b) => a.repeat - b.repeat || a.rnd - b.rnd);
-            const selected = scores.slice(0,4).map(x => x.p);
-            selected.sort(() => Math.random() - 0.5);
-
-            target.courts = target.courts || [];
-            target.courts[courtNum - 1] = {
-                courtNum,
-                teamA: [selected[0], selected[1]],
-                teamB: [selected[2], selected[3]]
-            };
-            return true;
-        }
-
-        function recalculateFutureMatches(autoScroll = false) {
-            const current = getCurrentMatchNum();
-            const changed = applyChangesForNextMatch(current);
-            renderMatches(autoScroll);
-            if (changed) saveServerState();
-        }
-
-        function formatTime(date) { return (date instanceof Date ? date : new Date(date)).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
-        function markNextMatchTime(n) { if(n && !matchTimes[n]) matchTimes[n]=formatTime(new Date()); }
-        function goBackToMatch(n) { if(!confirm(`第${n}試合をMATCHに戻しますか？`)) return; completedMatches.forEach(x=>{if(x>=n) completedMatches.delete(x);}); scrollVersion++; renderMatches(true); saveServerState(); }
-        let activeSpeechButton = null;
-        function resetSpeechButtons() {
-            document.querySelectorAll('.read-aloud-btn').forEach(btn => {
-                if (btn.dataset.readLabel) btn.textContent = btn.dataset.readLabel;
-                btn.classList.remove('speaking');
-            });
-            activeSpeechButton = null;
-        }
-        function speakText(text, button) {
-            if(!('speechSynthesis' in window)){alert('この端末では読み上げ機能を利用できません。');return;}
-            if (speechSynthesis.speaking && activeSpeechButton === button) { speechSynthesis.cancel(); resetSpeechButtons(); return; }
-            speechSynthesis.cancel(); resetSpeechButtons();
-            const u=new SpeechSynthesisUtterance(text); u.lang='ja-JP'; u.rate=.9;
-            activeSpeechButton=button||null;
-            if(button){ button.dataset.readLabel=button.dataset.readLabel||button.textContent; button.textContent='⏹ 読み上げ停止'; button.classList.add('speaking'); }
-            u.onend=()=>{if(activeSpeechButton===button)resetSpeechButtons();};
-            u.onerror=()=>{if(activeSpeechButton===button)resetSpeechButtons();};
-            speechSynthesis.speak(u);
-        }
-        function speakCourt(n,i,button) { const m=matchesData.find(x=>x.matchNum===n),c=m?.courts?.[i]; if(!c)return; const cn=courtNames[i]||('第'+(i+1)+'コート'); const text='第'+n+'試合、'+cn+'。'+c.teamA[0]+'番、'+c.teamA[1]+'番、対、'+c.teamB[0]+'番、'+c.teamB[1]+'番。'; speakText(text,button); }
-        function speakMatch(n,button) { const m=matchesData.find(x=>x.matchNum===n); if(!m)return; const text='第'+n+'試合。'+(m.courts||[]).map((c,i)=>(courtNames[i]||('第'+(i+1)+'コート'))+'。'+c.teamA[0]+'番、'+c.teamA[1]+'番、対、'+c.teamB[0]+'番、'+c.teamB[1]+'番。').join(''); speakText(text,button); }
-        function toggleMatchDone(matchNum) {
-            markInteraction();
-            if(completedMatches.has(matchNum)) return;
-            if(!confirm(`第${matchNum}試合を終了して、次の試合へ進みますか？`)) return;
-            completedMatches.add(matchNum);
-            markNextMatchTime(matchNum + 1);
-            applyChangesForNextMatch(matchNum);
-            // 「次の試合」がMATCHとして表示された時点で、その試合に出る新規参加者のNEWを消す。
-            clearNewPlayersForMatch(matchNum + 1);
-            scrollVersion++;
-            renderSelectors();
-            renderMatches(true);
-            saveServerState();
-        }
-
-        function toggleCourtDone(courtNum) {
-            markInteraction();
-            const current = courtProgress[courtNum] || 1;
-            const next = current + 1;
-            if(!matchesData.find(m=>m.matchNum===next)) return;
-            if(!confirm(`${courtNames[courtNum-1]||`第${courtNum}コート`}を第${next}試合へ進めますか？`)) return;
-            const currentMatch = matchesData.find(m => m.matchNum === current);
-            const currentCourt = currentMatch?.courts?.[courtNum - 1];
-            let newCleared = false;
-            courtProgress[courtNum] = next;
-            // 次の試合がこのコートでMATCH表示になった時点でNEWを消す。
-            const nextMatch = matchesData.find(m => m.matchNum === next);
-            const nextCourt = nextMatch?.courts?.[courtNum - 1];
-            if (nextCourt) {
-                const playing = new Set([...nextCourt.teamA, ...nextCourt.teamB]);
-                [...newPlayers].forEach(p => {
-                    if (playing.has(p)) { newPlayers.delete(p); newCleared = true; }
-                });
-            }
-            markNextMatchTime(next);
-            rebuildCourtNext(courtNum,next);
-            scrollVersion++;
-            if (newCleared) renderSelectors();
-            renderMatches(true);
-            saveServerState();
-        }
-
-        function courtMarkup(c, extraClass='') {
-            if (!c) return '';
-            return '<div class="badminton-court ' + extraClass + '">' +
-                '<div class="court-side left"><span class="court-num">' + renderBadge(c.teamA[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamA[1]) + '</span></div>' +
-                '<div class="court-divider"></div>' +
-                '<div class="court-side right"><span class="court-num">' + renderBadge(c.teamB[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamB[1]) + '</span></div>' +
-            '</div>';
-        }
-
-        function renderMatchCard(match, label, isCurrent, isDone, includeButton=false, courtIndex=null) {
-            const card = document.createElement('div');
-            card.className = `match-card schedule-card ${isCurrent ? 'current-match' : 'preview-match-card'} ${isDone ? 'done-match' : ''}`;
-            if (match.error) {
-                card.innerHTML = `<div class="match-header"><span class="match-title">${label}　第 ${match.matchNum} 試合</span></div><div style="color:#dc2626;font-size:1.5rem;font-weight:bold;padding:10px 0;">${match.error}</div>`;
-                return card;
-            }
-            let courtsHtml = '<div class="schedule-courts">';
-            const sourceCourts = courtIndex === null ? (match.courts || []) : [match.courts?.[courtIndex]];
-            const displayOrder = (parseInt(document.getElementById('courtCount').value) === 2 && courtIndex === null && sourceCourts.length >= 2) ? [{c:sourceCourts[1],i:1},{c:sourceCourts[0],i:0}] : sourceCourts.map((c,i)=>({c,i:courtIndex===null?i:courtIndex}));
-            displayOrder.forEach(({c,i})=>{ if(!c)return; const name=courtNames[i]||('第'+c.courtNum+'面'); const courtClass=i===0?'court-a':(i===1?'court-b':''); const rb=courtIndex===null ? '' : '<button class="read-aloud-btn" data-read-label="🔊 '+name+'を読み上げ" onclick="event.stopPropagation();speakCourt('+match.matchNum+','+i+',this)">🔊 '+name+'を読み上げ</button>'; courtsHtml += '<div class="schedule-court '+courtClass+'"><div class="court-info-panel"><div class="court-info-main"><span class="court-letter">'+name+'</span></div></div><div class="court-display">'+courtMarkup(c)+'</div>'+rb+'</div>'; });
-            courtsHtml += '</div>';
-            const readBtn = courtIndex === null ? `<button class="read-aloud-btn" data-read-label="🔊 読み上げ" onclick="event.stopPropagation();speakMatch(${match.matchNum},this)">🔊 読み上げ</button>` : '';
-            const nextBtn = includeButton ? `<button class="next-match-btn" onclick="${courtIndex === null ? `toggleMatchDone(${match.matchNum})` : `toggleCourtDone(${courtIndex+1})`}">▶ 次の試合へ</button>` : '';
-            const actionHtml = (readBtn || nextBtn) ? `<div class="match-actions">${readBtn}${nextBtn}</div>` : '';
-             const timeText=matchTimes[match.matchNum]?`（${matchTimes[match.matchNum]}）`:'';
-             card.innerHTML = `<div class="match-header"><span class="match-title">第${match.matchNum}試合${timeText}</span><span class="court-header-guide">（←窓側　壁側→）</span></div>${courtsHtml}${actionHtml}`;
-            if(!isCurrent && match.matchNum < getCurrentMatchNum()){ card.classList.add('past-match-card'); card.onclick=()=>goBackToMatch(match.matchNum); }
-            return card;
-        }
-
-        function renderMatches(autoScroll = false) {
-            ensureUniquePlayersAllMatches(matchesData);
-            const listEl = document.getElementById('matchList');
-            const frameEl = document.getElementById('matchesFrame');
-            if (!matchesData || matchesData.length === 0) {
-                listEl.innerHTML = '<div style="text-align:center;color:#ffffff;padding:40px;font-weight:bold;font-size:1.6rem;">「人数変更・コート設定」から「今日の組み合わせ作成」を押してください。</div>';
-                return;
-            }
-            const mode = document.body.dataset.progressMode || 'match';
-            if (mode === 'court') { renderCourtProgressMode(listEl, autoScroll); return; }
-
-            const currentNum = getCurrentMatchNum();
-            // 表示順は「終了 → MATCH → 次」。スクロールでMATCHをフレーム中央へ。
-            const visibleNums = matchesData.map(m => m.matchNum).filter(n => n <= currentNum + 1 && n >= 1);
-            listEl.innerHTML = '';
-            let currentEl = null;
-            visibleNums.forEach(num => {
-                const match = matchesData.find(m => m.matchNum === num);
-                if (!match) return;
-                const isCurrent = num === currentNum;
-                const card = renderMatchCard(match, isCurrent ? '' : (num < currentNum ? '' : '次の試合'), isCurrent, completedMatches.has(num), isCurrent, null);
-                card.id = `match-card-${num}`;
-                if (isCurrent) currentEl = card;
-                listEl.appendChild(card);
-            });
-            if (currentEl) centerMatchCard(frameEl, currentEl);
-        }
-
-        function centerMatchCard(frameEl, currentEl) {
-            setTimeout(() => {
-                // zoom環境でも座標がずれないよう、layout座標で中央配置する
-                const targetTop = currentEl.offsetTop - (frameEl.clientHeight - currentEl.offsetHeight) / 2;
-                frameEl.scrollTop = Math.max(0, targetTop);
-            }, 50);
-        }
-
-        function renderCourtProgressMode(listEl, autoScroll = false) {
-            listEl.innerHTML = '';
-            const courtCount = parseInt(document.getElementById('courtCount').value);
-            for (let c = 1; c <= courtCount; c++) if (!courtProgress[c]) courtProgress[c] = 1;
-
-            const currentNums = [];
-            for (let c = 1; c <= courtCount; c++) currentNums.push(courtProgress[c] || 1);
-            const mainNum = Math.min.apply(null, currentNums);
-
-            function buildCombined(slot) {
-                const card = document.createElement('div');
-                const isCurrent = slot === 'current';
-                card.className = 'match-card schedule-card ' + (isCurrent ? 'current-match' : 'preview-match-card');
-                const headerText = slot === 'previous' ? '終了した試合' : (slot === 'next' ? '次の試合' : '');
-                card.innerHTML = headerText ? '<div class="match-header"><span class="match-title">' + headerText + '</span></div>' : '';
-                const courtsWrap = document.createElement('div');
-                courtsWrap.className = 'schedule-courts';
-                let shown = 0;
-
-                const courtOrder = courtCount === 2 ? [1, 0] : Array.from({length: courtCount}, (_, i) => i);
-                courtOrder.forEach(function(c) {
-                    const activeNum = courtProgress[c + 1] || 1;
-                    const targetNum = slot === 'previous' ? activeNum - 1 : (slot === 'next' ? activeNum + 1 : activeNum);
-                    if (targetNum < 1) return;
-                    const m = matchesData.find(function(x) { return x.matchNum === targetNum; });
-                    if (!m || m.error || !m.courts || !m.courts[c]) return;
-
-                    const wrap = document.createElement('div');
-                    wrap.className = 'schedule-court ' + (c === 0 ? 'court-a' : (c === 1 ? 'court-b' : ''));
-                    const labelName = courtNames[c] || ('第' + (c + 1) + '面');
-                    const targetTime = matchTimes[targetNum] ? ('（' + matchTimes[targetNum] + '）') : '';
-                    wrap.innerHTML = '<div class="court-header"><span class="court-header-title">第' + targetNum + '試合' + targetTime + '</span><span class="court-header-guide">（←窓側　壁側→）</span></div><div class="court-info-panel"><div class="court-info-main"><span class="court-letter">' + labelName + '</span></div></div><div class="court-display">' + courtMarkup(m.courts[c]) + '</div>';
-
-                    const readBtn = document.createElement('button');
-                    readBtn.className = 'read-aloud-btn';
-                    readBtn.type = 'button';
-                    readBtn.textContent = '🔊 ' + labelName + 'を読み上げ';
-                    readBtn.dataset.readLabel = readBtn.textContent;
-                    readBtn.onclick = function(e) { e.stopPropagation(); speakCourt(targetNum, c, readBtn); };
-                    const actions = document.createElement('div');
-                    actions.className = 'match-actions';
-                    actions.appendChild(readBtn);
-
-                    if (isCurrent) {
-                        const btn = document.createElement('button');
-                        btn.className = 'next-match-btn';
-                        btn.textContent = '▶ 次の試合へ';
-                        btn.onclick = function() { toggleCourtDone(c + 1); };
-                        actions.appendChild(btn);
-                    }
-                    wrap.appendChild(actions);
-
-                    courtsWrap.appendChild(wrap);
-                    shown++;
-                });
-                card.appendChild(courtsWrap);
-                return shown ? card : null;
-            }
-
-            const prev = buildCombined('previous');
-            if (prev) listEl.appendChild(prev);
-            const current = buildCombined('current');
-            if (!current) return;
-            current.id = 'match-card-current';
-            listEl.appendChild(current);
-            const next = buildCombined('next');
-            if (next) listEl.appendChild(next);
-            centerMatchCard(document.getElementById('matchesFrame'), current);
-        }
-
-        function renderBadge(num) {
-            const isMyNum = (num === myNumber);
-            return `<span class="num-badge ${isMyNum ? 'my-num' : ''}">${num}</span>`;
-        }
-
-
-
-function saveServerState() {
-
-    // 初回のサーバー読み込みが終わる前は保存しない
-    if (!initialLoadCompleted) {
-        return;
-    }
-
-    // サーバーから受信した状態を反映中は保存しない
-    if (isApplyingServerState) {
-        return;
-    }
-
-    // 同じブラウザから保存要求が重なった場合
-    // 最後の状態をあとで保存する
-    if (saveInFlight) {
-        saveQueued = true;
-        return;
-    }
-
-    const state = {
-        progressMode: document.body.dataset.progressMode || 'match',
-
-        currentMaxPlayers: currentMaxPlayers,
-
-        playerCount:
-            document.getElementById('playerCount').value,
-
-        courtCount:
-            document.getElementById('courtCount').value,
-
-        absentPlayers:
-            Array.from(absentPlayers),
-
-        completedMatches:
-            Array.from(completedMatches),
-
-        courtProgress:
-            courtProgress,
-
-        appliedAbsentPlayers:
-            Array.from(appliedAbsentPlayers),
-
-        pendingAddedPlayers:
-            Array.from(pendingAddedPlayers),
-
-        newPlayers:
-            Array.from(newPlayers),
-
-        playerJoinMatch:
-            playerJoinMatch,
-
-        scheduleDate:
-            scheduleDate || getTodayKey(),
-
-        // 現在の試合
-        currentMatchNum:
-            getCurrentMatchNum(),
-
-        // 「次の試合へ」が押された回数・変化を共有
-        scrollVersion:
-            Number(scrollVersion) || 0,
-
-        matchesData:
-            matchesData,
-
-        originalMatchesData:
-            originalMatchesData,
-
-        baseMatchesData:
-            baseMatchesData
+export default {
+async fetch(request, env) {
+const url = new URL(request.url);
+
+    // CORS
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Cache-Control": "no-store"
     };
 
-    const jsonStr = JSON.stringify(state);
-
-    saveInFlight = true;
-
-    fetch('/api?action=save&_=' + Date.now(), {
-        cache: 'no-store',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            json: jsonStr,
-            revision: Number(serverRevision) || 0
-        })
-    })
-    .then(r => r.json())
-    .then(result => {
-
-        saveInFlight = false;
-
-        if (result && result.ok) {
-
-            // サーバーが確定したrevisionを保持
-            serverRevision =
-                Number(result.revision) || 0;
-
-            // GETと同じ外側のrecord形式で保持
-            lastServerJson =
-                JSON.stringify({
-                    revision: serverRevision,
-                    json: result.json || jsonStr
-                });
-
-            saveConflictAlerted = false;
-
-        } else {
-
-            // revisionが古い場合でも、ここで画面を初期化しない。
-            // 最新revisionだけ取得し、現在端末で作成した状態を
-            // そのrevisionに対して一度だけ再保存する。
-            // （別端末を閉じた直後などに起きる競合対策）
-            lastServerJson = '';
-            saveQueued = false;
-
-            // 旧Workerが残っている場合の保険。画面は上書きせず、少し待って再保存する。
-            if (result && result.conflict) {
-                serverRevision = Number(result.revision) || serverRevision;
-                setTimeout(() => saveServerState(), 300);
-            }
-        }
-
-        // 保存中に発生した最新の変更だけ再保存
-        if (saveQueued) {
-            saveQueued = false;
-
-            setTimeout(() => {
-                if (!isApplyingServerState) {
-                    saveServerState();
-                }
-            }, 0);
-        }
-    })
-    .catch(() => {
-
-        saveInFlight = false;
-
-        // 通信失敗時は状態を捨てない
-        saveQueued = true;
-
-        setTimeout(() => {
-
-            if (
-                saveQueued &&
-                !saveInFlight &&
-                !isApplyingServerState
-            ) {
-                saveQueued = false;
-                saveServerState();
-            }
-
-        }, 1500);
-    });
+    // CORS preflight
+if (request.method === "OPTIONS") {
+      return new Response("", {
+      return new Response(null, {
+status: 204,
+        headers: cors
+        headers: corsHeaders(),
+});
 }
 
-
-
-
-function loadServerState(isInitial = false, force = false) {
-
-    // 読み込み中の重複通信を防止。ただし強制読み込みは許可
-    if (loadInFlight && !force) {
-        return;
-    }
-    loadInFlight = true;
-
-    if (isInitial) {
-        showLoading(true);
-    }
-
-    fetch('/api?action=get&_=' + Date.now(), { cache: 'no-store' })
-        .then(r => r.text())
-        .then((jsonStr) => {
-
-            loadInFlight = false;
-
-            if (isInitial) {
-                showLoading(false);
+    // =========================
+    // API
+    // =========================
+if (url.pathname === "/api") {
+      if (!env.BADMINTON_STATE) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "BADMINTON_STATE binding is missing"
+          }),
+          {
+            status: 500,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
             }
+          }
+        );
+      }
+      const key = url.searchParams.get("key") || DEFAULT_KEY;
 
-            if (!jsonStr) {
-                initialLoadCompleted = true;
-                return;
+      const key = env.STATE_KEY || DEFAULT_KEY;
+
+      // -------------------------
+      // GET
+      // -------------------------
+      // データ取得
+if (request.method === "GET") {
+const record = await env.BADMINTON_STATE.get(key, {
+          type: "json"
+          type: "json",
+});
+
+        return new Response(
+          record ? JSON.stringify(record) : "",
+          {
+            status: 200,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
             }
-
-            // 自分が操作した直後は、
-            // その操作が保存されるまで古い状態を適用しない
-            if (isInteracting && !isInitial && !force) {
-                return;
-            }
-
-            // まったく同じサーバー状態なら何もしない
-            if (jsonStr === lastServerJson) {
-                return;
-            }
-
-            let record;
-            let state;
-
-            try {
-
-                record = JSON.parse(jsonStr);
-
-                state = JSON.parse(
-                    record.json || '{}'
-                );
-
-            } catch (e) {
-
-                console.error(
-                    'サーバー状態の解析に失敗:',
-                    e
-                );
-
-                return;
-            }
-
-            // 同じrevisionでも内容が異なる場合は反映する。
-            // KVの反映遅延による巻き戻しは、lastServerJsonで判定する。
-            const remoteRevision = Number(record.revision) || 0;
-            if (!isInitial && remoteRevision < (Number(serverRevision) || 0)) {
-                return;
-            }
-
-            // ========================================
-            // サーバー状態を反映開始
-            // ========================================
-
-            isApplyingServerState = true;
-
-            try {
-
-                const today = getTodayKey();
-
-                // ------------------------------------
-                // 日付チェック
-                // ------------------------------------
-
-                if (
-                    state.scheduleDate &&
-                    state.scheduleDate !== today
-                ) {
-
-                    completedMatches = new Set();
-                    absentPlayers = new Set();
-                    appliedAbsentPlayers = new Set();
-                    pendingAddedPlayers = new Set();
-                    newPlayers = new Set();
-                    playerJoinMatch = {};
-                    courtProgress = {};
-
-                    matchesData = [];
-                    originalMatchesData = [];
-                    baseMatchesData = [];
-
-                    scheduleDate = today;
-
-                    // サーバー状態を消費済みにする
-                    lastServerJson = jsonStr;
-
-                    renderSelectors();
-                    renderMatches(false);
-
-                    return;
-                }
-
-                // ------------------------------------
-                // revision
-                // ★ state.revision ではなく
-                //   record.revision
-                // ------------------------------------
-
-                serverRevision =
-                    Number(record.revision) || 0;
-
-                // ------------------------------------
-                // 基本設定
-                // ------------------------------------
-
-                scheduleDate =
-                    state.scheduleDate || today;
-
-                currentMaxPlayers =
-                    Number(state.currentMaxPlayers) || 4;
-
-                const playerSelect =
-                    document.getElementById('playerCount');
-
-                playerSelect.value =
-                    state.playerCount || 4;
-
-                document.getElementById('courtCount').value =
-                    state.courtCount || 2;
-
-                // ------------------------------------
-                // 進行モード
-                // ------------------------------------
-
-                document.body.dataset.progressMode =
-                    state.progressMode || 'match';
-
-                // ------------------------------------
-                // 各種状態
-                // ------------------------------------
-
-                absentPlayers =
-                    new Set(state.absentPlayers || []);
-
-                completedMatches =
-                    new Set(state.completedMatches || []);
-
-                courtProgress =
-                    state.courtProgress || {};
-
-                appliedAbsentPlayers =
-                    new Set(
-                        state.appliedAbsentPlayers || []
-                    );
-
-                pendingAddedPlayers =
-                    new Set(
-                        state.pendingAddedPlayers || []
-                    );
-
-                newPlayers =
-                    new Set(
-                        state.newPlayers || []
-                    );
-
-                playerJoinMatch =
-                    state.playerJoinMatch || {};
-
-                // ------------------------------------
-                // 試合データ
-                // ------------------------------------
-
-                if (Array.isArray(state.matchesData)) {
-
-                    matchesData =
-                        state.matchesData;
-
-                } else {
-
-                    matchesData = [];
-                }
-
-                if (Array.isArray(state.originalMatchesData)) {
-
-                    originalMatchesData =
-                        state.originalMatchesData;
-
-                } else {
-
-                    originalMatchesData = [];
-                }
-
-                if (Array.isArray(state.baseMatchesData)) {
-
-                    baseMatchesData =
-                        state.baseMatchesData;
-
-                } else {
-
-                    baseMatchesData =
-                        JSON.parse(
-                            JSON.stringify(
-                                originalMatchesData
-                            )
-                        );
-                }
-
-                // ------------------------------------
-                // 次の試合への進行情報
-                // ------------------------------------
-
-                const oldScrollVersion =
-                    Number(scrollVersion) || 0;
-
-                const remoteScrollVersion =
-                    Number(state.scrollVersion) || 0;
-
-                const remoteCurrentMatch =
-                    Number(state.currentMatchNum) || 1;
-
-                /*
-                 * サーバー側の状態を適用する前の
-                 * ローカル現在試合
-                 */
-                let localCurrentMatch = 1;
-
-                if (
-                    matchesData &&
-                    matchesData.length > 0
-                ) {
-                    const pending =
-                        matchesData.find(
-                            m =>
-                                !completedMatches.has(m.matchNum) &&
-                                !m.error
-                        );
-
-                    if (pending) {
-                        localCurrentMatch =
-                            Number(pending.matchNum) || 1;
-                    }
-                }
-
-                /*
-                 * 「次の試合へ」が発生したか
-                 *
-                 * scrollVersion が変わった場合
-                 * またはサーバーの現在試合が違う場合
-                 */
-                const shouldRemoteScroll =
-                    !isInitial &&
-                    (
-                        remoteScrollVersion !== oldScrollVersion ||
-                        remoteCurrentMatch !== localCurrentMatch
-                    );
-
-                // サーバーの値を正式採用
-                scrollVersion =
-                    remoteScrollVersion;
-
-                // ------------------------------------
-                // 重複防止
-                // ------------------------------------
-
-                ensureUniquePlayersAllMatches(
-                    matchesData
-                );
-
-                ensureUniquePlayersAllMatches(
-                    originalMatchesData
-                );
-
-                ensureUniquePlayersAllMatches(
-                    baseMatchesData
-                );
-
-                // ------------------------------------
-                // ★ここが重要
-                //
-                // 今受信したサーバー状態を
-                // 保存済み状態として記録する。
-                //
-                // これによって
-                // 「受信→再保存→別端末へ送信」
-                // のループを防ぐ。
-                // ------------------------------------
-
-                lastServerJson = jsonStr;
-
-                // ------------------------------------
-                // 画面更新
-                // ------------------------------------
-
-                renderSelectors();
-
-                setProgressMode(
-                    state.progressMode || 'match',
-                    false
-                );
-
-                /*
-                 * 初回、または他端末で
-                 * 次の試合へ進んだ場合だけ
-                 * 現在試合へスクロール。
-                 */
-                renderMatches(
-                    isInitial || shouldRemoteScroll
-                );
-
-                initialLoadCompleted = true;
-
-            } finally {
-
-                // サーバー状態の反映完了
-                isApplyingServerState = false;
-            }
-
-        })
-        .catch(() => {
-
-            loadInFlight = false;
-
-            if (isInitial) {
-                showLoading(false);
-            }
-            initialLoadCompleted = true;
-
+          }
+        );
+        return new Response(record ? JSON.stringify(record) : "", {
+          status: 200,
+          headers: {
+            ...corsHeaders(),
+            "Content-Type": "application/json; charset=utf-8",
+          },
         });
 }
 
+      // -------------------------
+      // POST
+      // -------------------------
+      // データ保存
+if (request.method === "POST") {
+let body;
 
-        
-    </script>
-    </div>
-</body>
-</html>
+try {
+body = await request.json();
+} catch {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: "invalid json"
+            }),
+          return jsonResponse(
+{
+              status: 400,
+              headers: {
+                ...cors,
+                "Content-Type": "application/json; charset=utf-8"
+              }
+            }
+              ok: false,
+              error: "invalid_json",
+            },
+            400
+);
+}
+
+        const current = await env.BADMINTON_STATE.get(key, {
+          type: "json"
+        const old = await env.BADMINTON_STATE.get(key, {
+          type: "json",
+});
+
+        const currentRevision = Number(
+          current?.revision || 0
+        );
+        const oldRevision = old
+          ? Number(old.revision) || 0
+          : 0;
+
+        const requestedRevision = Number(
+          body.revision || 0
+        );
+        const revision = oldRevision + 1;
+        const json = String(body.json ?? "");
+
+        // 他の端末が先に更新していた場合
+        if (
+          current &&
+          requestedRevision !== currentRevision
+        ) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              conflict: true,
+              revision: currentRevision,
+              json: current.json || ""
+            }),
+            {
+              status: 409,
+              headers: {
+                ...cors,
+                "Content-Type": "application/json; charset=utf-8"
+              }
+            }
+          );
+        }
+
+        const next = {
+          revision: currentRevision + 1,
+          json: String(body.json || "")
+        const record = {
+          revision,
+          json,
+};
+
+await env.BADMINTON_STATE.put(
+key,
+          JSON.stringify(next)
+          JSON.stringify(record)
+);
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            revision: next.revision,
+            json: next.json
+          }),
+          {
+            status: 200,
+            headers: {
+              ...cors,
+              "Content-Type": "application/json; charset=utf-8"
+            }
+          }
+        );
+        return jsonResponse({
+          ok: true,
+          revision,
+          json,
+        });
+}
+
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Method not allowed"
+        }),
+      return jsonResponse(
+{
+          status: 405,
+          headers: {
+            ...cors,
+            "Content-Type": "application/json; charset=utf-8"
+          }
+        }
+          ok: false,
+          error: "method_not_allowed",
+        },
+        405
+);
+}
+
+    // =========================
+    // トップページ
+    // =========================
+    // HTML表示
+if (
+url.pathname === "/" ||
+url.pathname === "/index.html"
+) {
+      if (!env.ASSETS) {
+        return new Response(
+          "ASSETS binding is missing",
+          {
+            status: 500,
+            headers: cors
+          }
+        );
+      }
+
+const response = await env.ASSETS.fetch(request);
+
+const headers = new Headers(response.headers);
+
+      headers.set("Cache-Control", "no-store");
+      headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, max-age=0"
+      );
+
+      headers.set("Pragma", "no-cache");
+
+return new Response(response.body, {
+status: response.status,
+        statusText: response.statusText,
+        headers
+        headers,
+});
+}
+
+return new Response("Not found", {
+status: 404,
+      headers: cors
+      headers: corsHeaders(),
+});
+  }
+  },
+};
