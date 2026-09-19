@@ -1843,14 +1843,6 @@ function saveServerState() {
 
             saveConflictAlerted = false;
 
-            // 保存直後にサーバーの確定状態を再確認する
-            // （他端末への反映とrevisionの基準を安定させる）
-            setTimeout(() => {
-                if (!saveInFlight && !isApplyingServerState) {
-                    loadServerState(false, true);
-                }
-            }, 150);
-
         } else {
 
             // revisionが古い場合でも、ここで画面を初期化しない。
@@ -1862,21 +1854,13 @@ function saveServerState() {
 
             if (!conflictRetrying) {
                 conflictRetrying = true;
-                fetch('/api?action=get')
-                    .then(r => r.text())
-                    .then(latestText => {
-                        try {
-                            const latestRecord = JSON.parse(latestText || '{}');
-                            serverRevision = Number(latestRecord.revision) || 0;
-                        } catch (e) {
-                            // 解析できない場合は現在のrevisionを維持
-                        }
-                        conflictRetrying = false;
-                        saveServerState();
-                    })
-                    .catch(() => {
-                        conflictRetrying = false;
-                    });
+                // 409応答に含まれる最新revisionをそのまま使用する。
+                // GETを挟むとKVの反映遅延で古いrevisionを再取得することがある。
+                if (result && result.conflict) {
+                    serverRevision = Number(result.revision) || serverRevision;
+                }
+                conflictRetrying = false;
+                setTimeout(() => saveServerState(), 0);
             }
         }
 
@@ -1972,6 +1956,13 @@ function loadServerState(isInitial = false, force = false) {
                     e
                 );
 
+                return;
+            }
+
+            // KVの反映遅延などで、現在保持している状態より古い
+            // revisionが返った場合は、画面を巻き戻さない。
+            const remoteRevision = Number(record.revision) || 0;
+            if (!isInitial && remoteRevision <= (Number(serverRevision) || 0)) {
                 return;
             }
 
