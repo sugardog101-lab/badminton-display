@@ -1,4 +1,3 @@
-```javascript
 const DEFAULT_KEY = "badminton:main";
 
 function corsHeaders() {
@@ -184,4 +183,3 @@ export default {
     });
   },
 };
-```
