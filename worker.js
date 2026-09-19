@@ -24,9 +24,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // =========================
-    // CORS
-    // =========================
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -34,9 +31,6 @@ export default {
       });
     }
 
-    // =========================
-    // API
-    // =========================
     if (url.pathname === "/api") {
       if (!env.BADMINTON_STATE) {
         return jsonResponse(
@@ -48,29 +42,23 @@ export default {
         );
       }
 
-      const key = url.searchParams.get("key") || DEFAULT_KEY;
+      const key =
+        url.searchParams.get("key") || DEFAULT_KEY;
 
-      // =========================
-      // GET
-      // =========================
       if (request.method === "GET") {
-        const record = await env.BADMINTON_STATE.get(key, {
-          type: "json",
-        });
+        const record =
+          await env.BADMINTON_STATE.get(key, {
+            type: "json",
+          });
 
         return jsonResponse(
-          record
-            ? record
-            : {
-                revision: 0,
-                json: "",
-              }
+          record || {
+            revision: 0,
+            json: "",
+          }
         );
       }
 
-      // =========================
-      // POST
-      // =========================
       if (request.method === "POST") {
         let body;
 
@@ -86,21 +74,17 @@ export default {
           );
         }
 
-        const current = await env.BADMINTON_STATE.get(key, {
-          type: "json",
-        });
+        const current =
+          await env.BADMINTON_STATE.get(key, {
+            type: "json",
+          });
 
-        const currentRevision = Number(
-          current?.revision || 0
-        );
+        const currentRevision =
+          Number(current?.revision || 0);
 
-        const requestedRevision = Number(
-          body?.revision || 0
-        );
+        const requestedRevision =
+          Number(body?.revision || 0);
 
-        // =========================
-        // 競合チェック
-        // =========================
         if (
           current &&
           requestedRevision !== currentRevision
@@ -142,9 +126,6 @@ export default {
       );
     }
 
-    // =========================
-    // トップページ
-    // =========================
     if (
       url.pathname === "/" ||
       url.pathname === "/index.html"
@@ -159,9 +140,11 @@ export default {
         );
       }
 
-      const response = await env.ASSETS.fetch(request);
+      const response =
+        await env.ASSETS.fetch(request);
 
-      const headers = new Headers(response.headers);
+      const headers =
+        new Headers(response.headers);
 
       headers.set(
         "Cache-Control",
