@@ -935,57 +935,89 @@ let isApplyingServerState = false;
             }
         }
 
+        function fairSelectPlayers(active, slots, matchNum, pc, lp, streak, forcedPlayers = new Set()) {
+            const forced = [...forcedPlayers].filter(p => active.includes(p)).slice(0, slots);
+            const forcedSet = new Set(forced);
+            const candidates = active.filter(p => !forcedSet.has(p)).map(p => {
+                const eligibleMatches = Math.max(1, matchNum - (playerJoinMatch[p] || 1) + 1);
+                const rate = (pc[p] || 0) / eligibleMatches;
+                const consecutive = lp[p] === matchNum - 1;
+                const currentStreak = streak[p] || 0;
+
+                // 直前出場は「少し不利」ではなく、まず必要最小限にする。
+                // 13人・2面のように8人必要な場合は、どうしても3人の連続出場が必要。
+                // その3人を毎回同じ人にせず、現在の連続回数が短い人から回す。
+                const consecutivePenalty = consecutive
+                    ? 10000 + Math.max(0, currentStreak - 1) * 20000
+                    : 0;
+
+                return {
+                    p,
+                    score: consecutivePenalty + rate * 1000 + (pc[p] || 0) * 0.5 + Math.random() * 0.01
+                };
+            }).sort((a, b) => a.score - b.score);
+
+            return forced.concat(candidates.slice(0, Math.max(0, slots - forced.length)).map(x => x.p));
+        }
+
+        function updateFairnessState(selected, active, matchNum, pc, lp, streak) {
+            const playing = new Set(selected);
+            active.forEach(p => {
+                if (playing.has(p)) {
+                    streak[p] = (lp[p] === matchNum - 1) ? ((streak[p] || 0) + 1) : 1;
+                    pc[p] = (pc[p] || 0) + 1;
+                    lp[p] = matchNum;
+                } else {
+                    streak[p] = 0;
+                }
+            });
+        }
+
         function generateFairFutureFromLocked(startNum, locked, active, guaranteedFirstPlayers = new Set()) {
             const courtCount = parseInt(document.getElementById('courtCount').value);
-            const pc = {}, lp = {}, ph = {};
+            const slots = courtCount * 4;
+            const pc = {}, lp = {}, streak = {}, ph = {};
+
             for (let i = 1; i <= currentMaxPlayers; i++) {
                 pc[i] = 0;
                 lp[i] = -999;
+                streak[i] = 0;
             }
 
-            locked.forEach(m => (m.courts || []).forEach(c => {
-                [...c.teamA, ...c.teamB].forEach(p => {
-                    pc[p] = (pc[p] || 0) + 1;
-                    lp[p] = Math.max(lp[p] ?? -999, m.matchNum);
+            // ロック済み試合から公平性の履歴を正確に復元する。
+            const lockedSorted = [...locked].sort((a, b) => a.matchNum - b.matchNum);
+            lockedSorted.forEach(m => {
+                const playing = new Set();
+                (m.courts || []).forEach(c => {
+                    [...c.teamA, ...c.teamB].forEach(p => playing.add(p));
+                    [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].forEach(k => {
+                        ph[k] = (ph[k] || 0) + 1;
+                    });
                 });
-                [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].forEach(k => {
-                    ph[k] = (ph[k] || 0) + 1;
+                active.forEach(p => {
+                    if (playing.has(p)) {
+                        pc[p] = (pc[p] || 0) + 1;
+                        streak[p] = (lp[p] === m.matchNum - 1) ? ((streak[p] || 0) + 1) : 1;
+                        lp[p] = m.matchNum;
+                    } else {
+                        streak[p] = 0;
+                    }
                 });
-            }));
+            });
 
             const out = [];
             const activeSet = new Set(active);
             const guaranteed = new Set([...guaranteedFirstPlayers].filter(p => activeSet.has(p)));
 
             for (let m = startNum; m <= SCHEDULE_MATCH_COUNT; m++) {
-                let selected;
+                const forced = m === startNum ? guaranteed : new Set();
+                const selected = fairSelectPlayers(active, slots, m, pc, lp, streak, forced);
+                const courts = makeFairCourts(selected, courtCount, ph, out[out.length - 1] || lockedSorted[lockedSorted.length - 1]);
+                const actualSelected = [];
+                courts.forEach(c => actualSelected.push(...c.teamA, ...c.teamB));
+                updateFairnessState(actualSelected, active, m, pc, lp, streak);
 
-                if (m === startNum && guaranteed.size > 0) {
-                    // 追加者は「次の1試合」だけ参加を保証する。
-                    // 残りは、これまでの出場回数・直前出場を普通に評価して選ぶ。
-                    const forced = [...guaranteed].slice(0, courtCount * 4);
-                    const remaining = active.filter(p => !forced.includes(p))
-                        .map(p => ({
-                            p,
-                            s: ((pc[p] || 0) / Math.max(1, m - (playerJoinMatch[p] || 1) + 1)) * 1000 + (lp[p] === m - 1 ? 120 : 0) + Math.random() * 20
-                        }))
-                        .sort((a, b) => a.s - b.s);
-                    selected = forced.concat(remaining.slice(0, courtCount * 4 - forced.length).map(x => x.p));
-                } else {
-                    const scored = active.map(p => ({
-                        p,
-                        s: ((pc[p] || 0) / Math.max(1, m - (playerJoinMatch[p] || 1) + 1)) * 1000 + (lp[p] === m - 1 ? 120 : 0) + Math.random() * 20
-                    })).sort((a, b) => a.s - b.s);
-                    selected = scored.slice(0, courtCount * 4).map(x => x.p);
-                }
-
-                const courts = makeFairCourts(selected, courtCount, ph, out[out.length - 1] || locked[locked.length - 1]);
-                const playing = new Set();
-                courts.forEach(c => [...c.teamA, ...c.teamB].forEach(p => {
-                    playing.add(p);
-                    pc[p] = (pc[p] || 0) + 1;
-                    lp[p] = m;
-                }));
+                const playing = new Set(actualSelected);
                 out.push({
                     matchNum: m,
                     courts,
@@ -1179,14 +1211,28 @@ function setProgressMode(mode, persist = true) {
             for(let c=0;c<courtCount;c++){ let best=null,bs=Infinity; for(let t=0;t<100;t++){ const q=[...pool].sort(()=>Math.random()-.5).slice(0,4); let sc=(pairHistory[pairKey(q[0],q[1])]||0)*20+(pairHistory[pairKey(q[2],q[3])]||0)*20; const pc=prev?.courts?.[c]; if(pc){const ids=new Set([...pc.teamA,...pc.teamB]);q.forEach(x=>{if(ids.has(x))sc+=2;});} if(sc<bs){bs=sc;best=q;} } const used=new Set(best); pool.splice(0,pool.length,...pool.filter(x=>!used.has(x))); courts.push({courtNum:c+1,teamA:[best[0],best[1]],teamB:[best[2],best[3]]}); [pairKey(best[0],best[1]),pairKey(best[2],best[3])].forEach(k=>pairHistory[k]=(pairHistory[k]||0)+1); } return courts;
         }
         function generateFullSchedule(){
-            const courtCount=parseInt(document.getElementById('courtCount').value), active=[];
+            const courtCount = parseInt(document.getElementById('courtCount').value);
+            const active = [];
             playerJoinMatch = {};
-            for (let i = 1; i <= currentMaxPlayers; i++) playerJoinMatch[i] = 1;
-            for(let i=1;i<=currentMaxPlayers;i++)if(!absentPlayers.has(i))active.push(i);
-            if(active.length<courtCount*4){alert(`コート数が${courtCount}面の場合、早上がりを除いて最低${courtCount*4}人必要です。`);return;}
-            const pc={},lp={},ph={}; for(let i=1;i<=currentMaxPlayers;i++){pc[i]=0;lp[i]=-999;} const out=[];
-            for(let m=1;m<=SCHEDULE_MATCH_COUNT;m++){ const scored=active.map(p=>({p,s:(pc[p]||0)*100+(lp[p]===m-1?60:0)+Math.random()*20})).sort((a,b)=>a.s-b.s); const pool=scored.slice(0,Math.min(active.length,courtCount*4+Math.max(4,Math.floor(active.length/3)))); let best=null,bs=Infinity; for(let t=0;t<80;t++){const q=pool.map(x=>x.p).sort(()=>Math.random()-.5).slice(0,courtCount*4);let z=q.reduce((v,p)=>v+(pc[p]||0)*8+(lp[p]===m-1?80:0),0);if(z<bs){bs=z;best=q;}} const courts=makeFairCourts(best,courtCount,ph,out[m-2]); const playing=new Set();courts.forEach(c=>[...c.teamA,...c.teamB].forEach(p=>{playing.add(p);pc[p]++;lp[p]=m;}));out.push({matchNum:m,courts,resting:active.filter(p=>!playing.has(p)).sort((a,b)=>a-b)}); }
-            originalMatchesData=JSON.parse(JSON.stringify(out));matchesData=JSON.parse(JSON.stringify(out));baseMatchesData=JSON.parse(JSON.stringify(out));ensureUniquePlayersAllMatches(matchesData);ensureUniquePlayersAllMatches(originalMatchesData);ensureUniquePlayersAllMatches(baseMatchesData);renderMatches(true);saveServerState();
+            for (let i = 1; i <= currentMaxPlayers; i++) {
+                playerJoinMatch[i] = 1;
+                if (!absentPlayers.has(i)) active.push(i);
+            }
+
+            if (active.length < courtCount * 4) {
+                alert(`コート数が${courtCount}面の場合、早上がりを除いて最低${courtCount * 4}人必要です。`);
+                return;
+            }
+
+            const out = generateFairFutureFromLocked(1, [], active, new Set());
+            originalMatchesData = JSON.parse(JSON.stringify(out));
+            matchesData = JSON.parse(JSON.stringify(out));
+            baseMatchesData = JSON.parse(JSON.stringify(out));
+            ensureUniquePlayersAllMatches(matchesData);
+            ensureUniquePlayersAllMatches(originalMatchesData);
+            ensureUniquePlayersAllMatches(baseMatchesData);
+            renderMatches(true);
+            saveServerState();
         }
 
         // 1試合の中で同じ番号がA/Bコートに重複しないよう最終チェックする。
@@ -1281,66 +1327,29 @@ function setProgressMode(mode, persist = true) {
                         resting: [...(m.resting || [])]
                     }));
 
-                // 早上がり設定時は、次の試合以降を一から再組み合わせする。
-                // これにより「次の予定試合」に早上がり番号が残ることを防ぐ。
+                // 早上がり・途中参加が同時に発生しても、同じ公平ロジックで未来を再生成する。
+                // 既に終了した試合は locked として固定し、そこから出場回数・連続出場を復元する。
                 if (absentPlayers.size > 0) {
-                    let playCounts = {};
-                    for (let i = 1; i <= currentMaxPlayers; i++) playCounts[i] = 0;
-                    locked.forEach(m => (m.courts || []).forEach(c =>
-                        [...c.teamA, ...c.teamB].forEach(p => {
-                            if (playCounts[p] !== undefined) playCounts[p]++;
-                        })
-                    ));
-
-                    const matchCount = Math.max(SCHEDULE_MATCH_COUNT, baseline.length || 0);
-                    const updated = JSON.parse(JSON.stringify(locked));
-
-                    for (let m = matchStartNum; m <= matchCount; m++) {
-                        let active = [];
-                        for (let i = 1; i <= currentMaxPlayers; i++) {
-                            if (!absentPlayers.has(i)) active.push(i);
-                        }
-                        active.push(...Array.from(pendingAddedPlayers));
-                        active = [...new Set(active)];
-
-                        if (active.length < courtCount * 4) {
-                            updated.push({matchNum:m, error:`人数不足 (${active.length}人)`});
-                            continue;
-                        }
-
-                        active.sort((a,b) =>
-                            playCounts[a] === playCounts[b]
-                                ? Math.random() - 0.5
-                                : playCounts[a] - playCounts[b]
-                        );
-                        const selected = active.slice(0, courtCount * 4);
-                        const resting = active.slice(courtCount * 4).sort((a,b)=>a-b);
-                        selected.forEach(p => { if (playCounts[p] !== undefined) playCounts[p]++; });
-
-                        const shuffled = [...selected].sort(()=>Math.random()-0.5);
-                        const courts = [];
-                        for (let c = 0; c < courtCount; c++) {
-                            const q = shuffled.slice(c * 4, (c + 1) * 4);
-                            courts.push({
-                                courtNum: c + 1,
-                                teamA: [q[0], q[1]],
-                                teamB: [q[2], q[3]]
-                            });
-                        }
-                        updated.push({matchNum:m, courts, resting});
+                    const active = [];
+                    for (let i = 1; i <= currentMaxPlayers; i++) {
+                        if (!absentPlayers.has(i)) active.push(i);
                     }
-
-                    matchesData = JSON.parse(JSON.stringify(updated));
+                    const future = generateFairFutureFromLocked(
+                        matchStartNum,
+                        locked,
+                        active,
+                        new Set(pendingAddedPlayers)
+                    );
+                    matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
                     return;
                 }
 
                 // 途中参加者がいる場合も、既存参加者の出場回数をリセットしない。
-                // 最初の1試合だけ参加を保証し、その後は通常の公平ロジックへ戻す。
+                // 最初の1試合だけ参加を保証し、その後は公平ロジックへ戻す。
                 if (pendingAddedPlayers.size > 0 && absentPlayers.size === 0) {
                     const active = [];
                     for (let i = 1; i <= currentMaxPlayers; i++) active.push(i);
-                    const guaranteed = new Set(pendingAddedPlayers);
-                    const future = generateFairFutureFromLocked(matchStartNum, locked, active, guaranteed);
+                    const future = generateFairFutureFromLocked(matchStartNum, locked, active, new Set(pendingAddedPlayers));
                     matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
                     return;
                 }
@@ -1737,333 +1746,148 @@ function setProgressMode(mode, persist = true) {
 
 
 function saveServerState() {
+    if (!initialLoadCompleted || isApplyingServerState) return;
 
-    if (!initialLoadCompleted) {
-        return;
-    }
-
-    if (isApplyingServerState) {
-        return;
-    }
-
-    // 保存中なら最新状態を予約
     if (saveInFlight) {
         saveQueued = true;
         return;
     }
 
     const state = {
-        progressMode:
-            document.body.dataset.progressMode || 'match',
-
-        currentMaxPlayers:
-            currentMaxPlayers,
-
-        playerCount:
-            document.getElementById('playerCount').value,
-
-        courtCount:
-            document.getElementById('courtCount').value,
-
-        absentPlayers:
-            Array.from(absentPlayers),
-
-        completedMatches:
-            Array.from(completedMatches),
-
-        courtProgress:
-            courtProgress,
-
-        appliedAbsentPlayers:
-            Array.from(appliedAbsentPlayers),
-
-        pendingAddedPlayers:
-            Array.from(pendingAddedPlayers),
-
-        newPlayers:
-            Array.from(newPlayers),
-
-        playerJoinMatch:
-            playerJoinMatch,
-
-        scheduleDate:
-            scheduleDate || getTodayKey(),
-
-        currentMatchNum:
-            getCurrentMatchNum(),
-
-        scrollVersion:
-            Number(scrollVersion) || 0,
-
-        matchesData:
-            matchesData,
-
-        originalMatchesData:
-            originalMatchesData,
-
-        baseMatchesData:
-            baseMatchesData
+        progressMode: document.body.dataset.progressMode || 'match',
+        currentMaxPlayers,
+        playerCount: document.getElementById('playerCount').value,
+        courtCount: document.getElementById('courtCount').value,
+        absentPlayers: Array.from(absentPlayers),
+        completedMatches: Array.from(completedMatches),
+        courtProgress,
+        appliedAbsentPlayers: Array.from(appliedAbsentPlayers),
+        pendingAddedPlayers: Array.from(pendingAddedPlayers),
+        newPlayers: Array.from(newPlayers),
+        playerJoinMatch,
+        scheduleDate: scheduleDate || getTodayKey(),
+        currentMatchNum: getCurrentMatchNum(),
+        scrollVersion: Number(scrollVersion) || 0,
+        matchesData,
+        originalMatchesData,
+        baseMatchesData
     };
 
     const jsonStr = JSON.stringify(state);
-
+    const baseRevision = Number(serverRevision) || 0;
     saveInFlight = true;
 
     fetch('/api?action=save', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            json: jsonStr,
-            revision: Number(serverRevision) || 0
-        })
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        body: JSON.stringify({ json: jsonStr, revision: baseRevision })
     })
     .then(async response => {
-
-        let result;
-
-        try {
-            result = await response.json();
-        } catch {
-            throw new Error('invalid server response');
-        }
-
-        return {
-            ok: response.ok,
-            status: response.status,
-            result
-        };
+        let result = null;
+        try { result = await response.json(); } catch (_) {}
+        return { ok: response.ok, status: response.status, result };
     })
     .then(({ ok, status, result }) => {
-
         saveInFlight = false;
 
-        // =========================
-        // 保存成功
-        // =========================
-        if (ok && result && result.ok) {
+        if (ok && result?.ok) {
+            serverRevision = Number(result.revision) || baseRevision;
+            lastServerJson = JSON.stringify({
+                revision: serverRevision,
+                json: result.json || jsonStr
+            });
 
-            serverRevision =
-                Number(result.revision) || serverRevision;
-
-            lastServerJson =
-                JSON.stringify({
-                    revision: serverRevision,
-                    json: result.json || jsonStr
-                });
-
-            saveConflictAlerted = false;
-
-            // 保存中に新しい操作が発生していた場合
             if (saveQueued) {
                 saveQueued = false;
-
-                setTimeout(() => {
-                    if (!isApplyingServerState) {
-                        saveServerState();
-                    }
-                }, 0);
+                setTimeout(() => saveServerState(), 0);
             }
-
             return;
         }
 
-        // =========================
-        // 競合
-        // =========================
-        if (
-            status === 409 &&
-            result &&
-            result.conflict
-        ) {
-
-            const remoteRevision =
-                Number(result.revision) || 0;
-
-            /*
-             * サーバーが返した最新revisionを採用。
-             *
-             * ここではサーバーのjsonを画面に
-             * 上書きしない。
-             *
-             * 今この端末で行った操作を維持したまま、
-             * 最新revisionを基準に再保存する。
-             */
-            serverRevision =
-                Math.max(
-                    Number(serverRevision) || 0,
-                    remoteRevision
-                );
-
+        if (status === 409 && result?.conflict) {
+            // 競合時にローカル状態を強制再保存すると、別端末の操作を上書きしてしまう。
+            // 最新のサーバー状態を取得して、この端末もそこへ戻す。
+            saveQueued = false;
+            conflictRetrying = true;
             setTimeout(() => {
-
-                if (!isApplyingServerState) {
-                    saveServerState();
-                }
-
-            }, 300);
-
+                loadServerState(false, true).finally(() => {
+                    conflictRetrying = false;
+                });
+            }, 0);
             return;
         }
 
-        // =========================
-        // その他の失敗
-        // =========================
         saveQueued = true;
-
         setTimeout(() => {
-
-            if (
-                saveQueued &&
-                !saveInFlight &&
-                !isApplyingServerState
-            ) {
+            if (saveQueued && !saveInFlight && !isApplyingServerState) {
                 saveQueued = false;
                 saveServerState();
             }
-
         }, 1500);
     })
     .catch(() => {
-
         saveInFlight = false;
-
-        // 現在の画面状態を捨てない
         saveQueued = true;
-
         setTimeout(() => {
-
-            if (
-                saveQueued &&
-                !saveInFlight &&
-                !isApplyingServerState
-            ) {
+            if (saveQueued && !saveInFlight && !isApplyingServerState) {
                 saveQueued = false;
                 saveServerState();
             }
-
         }, 1500);
     });
 }
 
+async function loadServerState(isInitial = false, force = false) {
+    if (loadInFlight && !force) return;
 
-function loadServerState(isInitial = false, force = false) {
-
-    if (loadInFlight && !force) {
-        return;
-    }
+    // 未保存のローカル操作を、GETで上書きしない。
+    // forceはrevision判定を飛ばすためのものだが、通常の画面復帰では保存中なら待つ。
+    if (!isInitial && (saveInFlight || saveQueued) && !conflictRetrying) return;
 
     loadInFlight = true;
+    if (isInitial) showLoading(true);
 
-    if (isInitial) {
-        showLoading(true);
-    }
+    try {
+        const url = '/api?action=get&_=' + Date.now();
+        const response = await fetch(url, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+        });
 
-    fetch('/api?action=get', {
-        cache: 'no-store'
-    })
-    .then(response => {
-
-        if (!response.ok) {
-            throw new Error(
-                'HTTP ' + response.status
-            );
-        }
-
-        return response.text();
-    })
-    .then(jsonStr => {
-
-        loadInFlight = false;
-
-        if (isInitial) {
-            showLoading(false);
-        }
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const jsonStr = await response.text();
 
         if (!jsonStr) {
-            initialLoadCompleted = true;
+            if (isInitial) initialLoadCompleted = true;
             return;
         }
 
         let record;
         let state;
-
         try {
-
             record = JSON.parse(jsonStr);
-
-            state = JSON.parse(
-                record.json || '{}'
-            );
-
+            state = JSON.parse(record.json || '{}');
         } catch (e) {
-
-            console.error(
-                'サーバー状態の解析に失敗:',
-                e
-            );
-
+            console.error('サーバー状態の解析に失敗:', e);
             return;
         }
 
-        const remoteRevision =
-            Number(record.revision) || 0;
+        const remoteRevision = Number(record.revision) || 0;
+        const localRevision = Number(serverRevision) || 0;
 
-        const localRevision =
-            Number(serverRevision) || 0;
-
-        // -----------------------------------------
-        // 初回読み込み
-        // -----------------------------------------
-        if (isInitial) {
-
-            serverRevision =
-                remoteRevision;
-
-            lastServerJson =
-                jsonStr;
-
-        } else {
-
-            // -----------------------------------------
-            // 自分の操作直後でも、
-            // 新しいrevisionなら必ず受信する
-            // -----------------------------------------
-            if (
-                remoteRevision <= localRevision
-            ) {
-                return;
-            }
-
-            /*
-             * ここでは isInteracting を理由に
-             * 新しいサーバー状態を捨てない。
-             *
-             * revisionが新しい＝別端末の更新なので、
-             * その状態を共有する。
-             */
-        }
-
-        // ========================================
-        // サーバー状態を反映
-        // ========================================
+        // 初回以外は、古いKV読み出しで画面を巻き戻さない。
+        // forceは409競合時など、最新状態を明示的に採用するときだけ使う。
+        if (!isInitial && !force && remoteRevision <= localRevision) return;
+        if (!isInitial && !force && jsonStr === lastServerJson) return;
 
         isApplyingServerState = true;
-
         try {
-
             const today = getTodayKey();
 
-            // ------------------------------------
-            // 日付チェック
-            // ------------------------------------
-if (
-    false &&
-    state.scheduleDate &&
-    state.scheduleDate !== today
-) {
-
+            // 現在の仕様では日付をまたいでもサーバー状態を保持する。
+            // 自動リセットしたい場合はここを有効化する。
+            if (false && state.scheduleDate && state.scheduleDate !== today) {
                 completedMatches = new Set();
                 absentPlayers = new Set();
                 appliedAbsentPlayers = new Set();
@@ -2071,585 +1895,87 @@ if (
                 newPlayers = new Set();
                 playerJoinMatch = {};
                 courtProgress = {};
-
                 matchesData = [];
                 originalMatchesData = [];
                 baseMatchesData = [];
-
                 scheduleDate = today;
-
-                serverRevision =
-                    remoteRevision;
-
-                lastServerJson =
-                    jsonStr;
-
+                serverRevision = remoteRevision;
+                lastServerJson = jsonStr;
                 renderSelectors();
                 renderMatches(false);
-
                 initialLoadCompleted = true;
-
                 return;
             }
 
-            // ------------------------------------
-            // revision
-            // ------------------------------------
-            serverRevision =
-                remoteRevision;
+            const oldScrollVersion = Number(scrollVersion) || 0;
 
-            // ------------------------------------
-            // 基本設定
-            // ------------------------------------
-            scheduleDate =
-                state.scheduleDate || today;
+            scheduleDate = state.scheduleDate || today;
+            currentMaxPlayers = Number(state.currentMaxPlayers) || 4;
 
-            currentMaxPlayers =
-                Number(
-                    state.currentMaxPlayers
-                ) || 4;
+            const playerSelect = document.getElementById('playerCount');
+            if (playerSelect) playerSelect.value = state.playerCount || 4;
 
-            const playerSelect =
-                document.getElementById(
-                    'playerCount'
-                );
+            const courtSelect = document.getElementById('courtCount');
+            if (courtSelect) courtSelect.value = state.courtCount || 2;
 
-            if (playerSelect) {
-                playerSelect.value =
-                    state.playerCount || 4;
-            }
+            absentPlayers = new Set(state.absentPlayers || []);
+            completedMatches = new Set(state.completedMatches || []);
+            courtProgress = state.courtProgress || {};
+            appliedAbsentPlayers = new Set(state.appliedAbsentPlayers || []);
+            pendingAddedPlayers = new Set(state.pendingAddedPlayers || []);
+            newPlayers = new Set(state.newPlayers || []);
+            playerJoinMatch = state.playerJoinMatch || {};
 
-            const courtSelect =
-                document.getElementById(
-                    'courtCount'
-                );
+            matchesData = Array.isArray(state.matchesData) ? state.matchesData : [];
+            originalMatchesData = Array.isArray(state.originalMatchesData) ? state.originalMatchesData : [];
+            baseMatchesData = Array.isArray(state.baseMatchesData)
+                ? state.baseMatchesData
+                : JSON.parse(JSON.stringify(originalMatchesData));
 
-            if (courtSelect) {
-                courtSelect.value =
-                    state.courtCount || 2;
-            }
-
-            // ------------------------------------
-            // 進行モード
-            // ------------------------------------
-            document.body.dataset.progressMode =
-                state.progressMode || 'match';
-
-            // ------------------------------------
-            // 各種状態
-            // ------------------------------------
-            absentPlayers =
-                new Set(
-                    state.absentPlayers || []
-                );
-
-            completedMatches =
-                new Set(
-                    state.completedMatches || []
-                );
-
-            courtProgress =
-                state.courtProgress || {};
-
-            appliedAbsentPlayers =
-                new Set(
-                    state.appliedAbsentPlayers || []
-                );
-
-            pendingAddedPlayers =
-                new Set(
-                    state.pendingAddedPlayers || []
-                );
-
-            newPlayers =
-                new Set(
-                    state.newPlayers || []
-                );
-
-            playerJoinMatch =
-                state.playerJoinMatch || {};
-
-            // ------------------------------------
-            // 試合データ
-            // ------------------------------------
-            matchesData =
-                Array.isArray(state.matchesData)
-                    ? state.matchesData
-                    : [];
-
-            originalMatchesData =
-                Array.isArray(
-                    state.originalMatchesData
-                )
-                    ? state.originalMatchesData
-                    : [];
-
-            baseMatchesData =
-                Array.isArray(
-                    state.baseMatchesData
-                )
-                    ? state.baseMatchesData
-                    : JSON.parse(
-                        JSON.stringify(
-                            originalMatchesData
-                        )
-                    );
-
-            // ------------------------------------
-            // 次の試合への進行情報
-            // ------------------------------------
-            const oldScrollVersion =
-                Number(scrollVersion) || 0;
-
-            const remoteScrollVersion =
-                Number(
-                    state.scrollVersion
-                ) || 0;
-
-            const remoteCurrentMatch =
-                Number(
-                    state.currentMatchNum
-                ) || 1;
-
+            const remoteScrollVersion = Number(state.scrollVersion) || 0;
+            const remoteCurrentMatch = Number(state.currentMatchNum) || 1;
             let localCurrentMatch = 1;
-
-            if (
-                matchesData &&
-                matchesData.length > 0
-            ) {
-
-                const pending =
-                    matchesData.find(
-                        m =>
-                            !completedMatches.has(
-                                m.matchNum
-                            ) &&
-                            !m.error
-                    );
-
-                if (pending) {
-                    localCurrentMatch =
-                        Number(
-                            pending.matchNum
-                        ) || 1;
-                }
+            if (matchesData.length) {
+                const pending = matchesData.find(m => !completedMatches.has(m.matchNum) && !m.error);
+                if (pending) localCurrentMatch = Number(pending.matchNum) || 1;
             }
 
-            const shouldRemoteScroll =
-                !isInitial &&
-                (
-                    remoteScrollVersion !==
-                        oldScrollVersion ||
-                    remoteCurrentMatch !==
-                        localCurrentMatch
-                );
-
-            scrollVersion =
-                remoteScrollVersion;
-
-            // ------------------------------------
-            // 重複防止
-            // ------------------------------------
-            ensureUniquePlayersAllMatches(
-                matchesData
+            const shouldRemoteScroll = !isInitial && (
+                remoteScrollVersion !== oldScrollVersion ||
+                remoteCurrentMatch !== localCurrentMatch
             );
 
-            ensureUniquePlayersAllMatches(
-                originalMatchesData
-            );
+            serverRevision = remoteRevision;
+            scrollVersion = remoteScrollVersion;
+            ensureUniquePlayersAllMatches(matchesData);
+            ensureUniquePlayersAllMatches(originalMatchesData);
+            ensureUniquePlayersAllMatches(baseMatchesData);
+            lastServerJson = jsonStr;
 
-            ensureUniquePlayersAllMatches(
-                baseMatchesData
-            );
-
-            // ------------------------------------
-            // 受信した状態を記録
-            // ------------------------------------
-            lastServerJson =
-                jsonStr;
-
-            // ------------------------------------
-            // 画面更新
-            // ------------------------------------
             renderSelectors();
-
-            setProgressMode(
-                state.progressMode || 'match',
-                false
-            );
-
-            renderMatches(
-                isInitial ||
-                shouldRemoteScroll
-            );
-
+            setProgressMode(state.progressMode || 'match', false);
+            renderMatches(isInitial || shouldRemoteScroll);
             initialLoadCompleted = true;
-
         } finally {
-
-            isApplyingServerState =
-                false;
+            isApplyingServerState = false;
         }
-    })
-    .catch(error => {
-
-        console.error(
-            'サーバー状態の取得に失敗:',
-            error
-        );
-
+    } catch (error) {
+        console.error('サーバー状態の取得に失敗:', error);
+        if (isInitial) initialLoadCompleted = true;
+    } finally {
         loadInFlight = false;
-
-        if (isInitial) {
-            showLoading(false);
-        }
-
-        initialLoadCompleted = true;
-    });
+        if (isInitial) showLoading(false);
+    }
 }
 
-
-
-function loadServerState(isInitial = false, force = false) {
-
-    // 読み込み中の重複通信を防止。ただし強制読み込みは許可
-    if (loadInFlight && !force) {
-        return;
-    }
-    loadInFlight = true;
-
-    if (isInitial) {
-        showLoading(true);
-    }
-
-    fetch('/api?action=get')
-        .then(r => r.text())
-        .then((jsonStr) => {
-
-            loadInFlight = false;
-
-            if (isInitial) {
-                showLoading(false);
-            }
-
-            if (!jsonStr) {
-                initialLoadCompleted = true;
-                return;
-            }
-
-            // 自分が操作した直後は、
-            // その操作が保存されるまで古い状態を適用しない
-            if (isInteracting && !isInitial && !force) {
-                return;
-            }
-
-            // まったく同じサーバー状態なら何もしない
-            if (jsonStr === lastServerJson) {
-                return;
-            }
-
-            let record;
-            let state;
-
-            try {
-
-                record = JSON.parse(jsonStr);
-
-                state = JSON.parse(
-                    record.json || '{}'
-                );
-
-            } catch (e) {
-
-                console.error(
-                    'サーバー状態の解析に失敗:',
-                    e
-                );
-
-                return;
-            }
-
-            // KVの反映遅延などで、現在保持している状態より古い
-            // revisionが返った場合は、画面を巻き戻さない。
-            const remoteRevision = Number(record.revision) || 0;
-            if (!isInitial && remoteRevision <= (Number(serverRevision) || 0)) {
-                return;
-            }
-
-            // ========================================
-            // サーバー状態を反映開始
-            // ========================================
-
-            isApplyingServerState = true;
-
-            try {
-
-                const today = getTodayKey();
-
-                // ------------------------------------
-                // 日付チェック
-                // ------------------------------------
-
-if (
-    false &&
-    state.scheduleDate &&
-    state.scheduleDate !== today
-) {
-
-                    completedMatches = new Set();
-                    absentPlayers = new Set();
-                    appliedAbsentPlayers = new Set();
-                    pendingAddedPlayers = new Set();
-                    newPlayers = new Set();
-                    playerJoinMatch = {};
-                    courtProgress = {};
-
-                    matchesData = [];
-                    originalMatchesData = [];
-                    baseMatchesData = [];
-
-                    scheduleDate = today;
-
-                    // サーバー状態を消費済みにする
-                    lastServerJson = jsonStr;
-
-                    renderSelectors();
-                    renderMatches(false);
-
-                    return;
-                }
-
-                // ------------------------------------
-                // revision
-                // ★ state.revision ではなく
-                //   record.revision
-                // ------------------------------------
-
-                serverRevision =
-                    Number(record.revision) || 0;
-
-                // ------------------------------------
-                // 基本設定
-                // ------------------------------------
-
-                scheduleDate =
-                    state.scheduleDate || today;
-
-                currentMaxPlayers =
-                    Number(state.currentMaxPlayers) || 4;
-
-                const playerSelect =
-                    document.getElementById('playerCount');
-
-                playerSelect.value =
-                    state.playerCount || 4;
-
-                document.getElementById('courtCount').value =
-                    state.courtCount || 2;
-
-                // ------------------------------------
-                // 進行モード
-                // ------------------------------------
-
-                document.body.dataset.progressMode =
-                    state.progressMode || 'match';
-
-                // ------------------------------------
-                // 各種状態
-                // ------------------------------------
-
-                absentPlayers =
-                    new Set(state.absentPlayers || []);
-
-                completedMatches =
-                    new Set(state.completedMatches || []);
-
-                courtProgress =
-                    state.courtProgress || {};
-
-                appliedAbsentPlayers =
-                    new Set(
-                        state.appliedAbsentPlayers || []
-                    );
-
-                pendingAddedPlayers =
-                    new Set(
-                        state.pendingAddedPlayers || []
-                    );
-
-                newPlayers =
-                    new Set(
-                        state.newPlayers || []
-                    );
-
-                playerJoinMatch =
-                    state.playerJoinMatch || {};
-
-                // ------------------------------------
-                // 試合データ
-                // ------------------------------------
-
-                if (Array.isArray(state.matchesData)) {
-
-                    matchesData =
-                        state.matchesData;
-
-                } else {
-
-                    matchesData = [];
-                }
-
-                if (Array.isArray(state.originalMatchesData)) {
-
-                    originalMatchesData =
-                        state.originalMatchesData;
-
-                } else {
-
-                    originalMatchesData = [];
-                }
-
-                if (Array.isArray(state.baseMatchesData)) {
-
-                    baseMatchesData =
-                        state.baseMatchesData;
-
-                } else {
-
-                    baseMatchesData =
-                        JSON.parse(
-                            JSON.stringify(
-                                originalMatchesData
-                            )
-                        );
-                }
-
-                // ------------------------------------
-                // 次の試合への進行情報
-                // ------------------------------------
-
-                const oldScrollVersion =
-                    Number(scrollVersion) || 0;
-
-                const remoteScrollVersion =
-                    Number(state.scrollVersion) || 0;
-
-                const remoteCurrentMatch =
-                    Number(state.currentMatchNum) || 1;
-
-                /*
-                 * サーバー側の状態を適用する前の
-                 * ローカル現在試合
-                 */
-                let localCurrentMatch = 1;
-
-                if (
-                    matchesData &&
-                    matchesData.length > 0
-                ) {
-                    const pending =
-                        matchesData.find(
-                            m =>
-                                !completedMatches.has(m.matchNum) &&
-                                !m.error
-                        );
-
-                    if (pending) {
-                        localCurrentMatch =
-                            Number(pending.matchNum) || 1;
-                    }
-                }
-
-                /*
-                 * 「次の試合へ」が発生したか
-                 *
-                 * scrollVersion が変わった場合
-                 * またはサーバーの現在試合が違う場合
-                 */
-                const shouldRemoteScroll =
-                    !isInitial &&
-                    (
-                        remoteScrollVersion !== oldScrollVersion ||
-                        remoteCurrentMatch !== localCurrentMatch
-                    );
-
-                // サーバーの値を正式採用
-                scrollVersion =
-                    remoteScrollVersion;
-
-                // ------------------------------------
-                // 重複防止
-                // ------------------------------------
-
-                ensureUniquePlayersAllMatches(
-                    matchesData
-                );
-
-                ensureUniquePlayersAllMatches(
-                    originalMatchesData
-                );
-
-                ensureUniquePlayersAllMatches(
-                    baseMatchesData
-                );
-
-                // ------------------------------------
-                // ★ここが重要
-                //
-                // 今受信したサーバー状態を
-                // 保存済み状態として記録する。
-                //
-                // これによって
-                // 「受信→再保存→別端末へ送信」
-                // のループを防ぐ。
-                // ------------------------------------
-
-                lastServerJson = jsonStr;
-
-                // ------------------------------------
-                // 画面更新
-                // ------------------------------------
-
-                renderSelectors();
-
-                setProgressMode(
-                    state.progressMode || 'match',
-                    false
-                );
-
-                /*
-                 * 初回、または他端末で
-                 * 次の試合へ進んだ場合だけ
-                 * 現在試合へスクロール。
-                 */
-                renderMatches(
-                    isInitial || shouldRemoteScroll
-                );
-
-                initialLoadCompleted = true;
-
-            } finally {
-
-                // サーバー状態の反映完了
-                isApplyingServerState = false;
-            }
-
-        })
-        .catch(() => {
-
-            loadInFlight = false;
-
-            if (isInitial) {
-                showLoading(false);
-            }
-            initialLoadCompleted = true;
-
-        });
-}
-
-
-        
-    </script>
+// 画面復帰時は2秒ポーリングを待たず即同期する。
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') loadServerState(false, true);
+});
+window.addEventListener('pageshow', () => loadServerState(false, true));
+window.addEventListener('focus', () => loadServerState(false, true));
+
+</script>
     </div>
 </body>
 </html>
