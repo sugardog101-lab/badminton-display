@@ -6,7 +6,9 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "CDN-Cache-Control": "no-store",
     "Pragma": "no-cache",
+    "Expires": "0",
   };
 }
 
@@ -34,61 +36,33 @@ export default {
     if (url.pathname === "/api") {
       if (!env.BADMINTON_STATE) {
         return jsonResponse(
-          {
-            ok: false,
-            error: "BADMINTON_STATE binding is missing",
-          },
+          { ok: false, error: "BADMINTON_STATE binding is missing" },
           500
         );
       }
 
-      const key =
-        url.searchParams.get("key") || DEFAULT_KEY;
+      const key = url.searchParams.get("key") || DEFAULT_KEY;
 
       if (request.method === "GET") {
-        const record =
-          await env.BADMINTON_STATE.get(key, {
-            type: "json",
-          });
-
-        return jsonResponse(
-          record || {
-            revision: 0,
-            json: "",
-          }
-        );
+        const record = await env.BADMINTON_STATE.get(key, { type: "json" });
+        return jsonResponse(record || { revision: 0, json: "" });
       }
 
       if (request.method === "POST") {
         let body;
-
         try {
           body = await request.json();
         } catch {
-          return jsonResponse(
-            {
-              ok: false,
-              error: "invalid_json",
-            },
-            400
-          );
+          return jsonResponse({ ok: false, error: "invalid_json" }, 400);
         }
 
-        const current =
-          await env.BADMINTON_STATE.get(key, {
-            type: "json",
-          });
+        const current = await env.BADMINTON_STATE.get(key, { type: "json" });
+        const currentRevision = Number(current?.revision || 0);
+        const requestedRevision = Number(body?.revision || 0);
 
-        const currentRevision =
-          Number(current?.revision || 0);
-
-        const requestedRevision =
-          Number(body?.revision || 0);
-
-        if (
-          current &&
-          requestedRevision !== currentRevision
-        ) {
+        // optimistic concurrency control:
+        // 保存開始時に見ていたrevisionとサーバーのrevisionが違えば拒否する。
+        if (current && requestedRevision !== currentRevision) {
           return jsonResponse(
             {
               ok: false,
@@ -105,10 +79,7 @@ export default {
           json: String(body?.json ?? ""),
         };
 
-        await env.BADMINTON_STATE.put(
-          key,
-          JSON.stringify(next)
-        );
+        await env.BADMINTON_STATE.put(key, JSON.stringify(next));
 
         return jsonResponse({
           ok: true,
@@ -117,41 +88,27 @@ export default {
         });
       }
 
-      return jsonResponse(
-        {
-          ok: false,
-          error: "method_not_allowed",
-        },
-        405
-      );
+      return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
     }
 
-    if (
-      url.pathname === "/" ||
-      url.pathname === "/index.html"
-    ) {
+    if (url.pathname === "/" || url.pathname === "/index.html") {
       if (!env.ASSETS) {
-        return new Response(
-          "ASSETS binding is missing",
-          {
-            status: 500,
-            headers: corsHeaders(),
-          }
-        );
+        return new Response("ASSETS binding is missing", {
+          status: 500,
+          headers: corsHeaders(),
+        });
       }
 
-      const response =
-        await env.ASSETS.fetch(request);
-
-      const headers =
-        new Headers(response.headers);
+      const response = await env.ASSETS.fetch(request);
+      const headers = new Headers(response.headers);
 
       headers.set(
         "Cache-Control",
         "no-store, no-cache, must-revalidate, max-age=0"
       );
-
+      headers.set("CDN-Cache-Control", "no-store");
       headers.set("Pragma", "no-cache");
+      headers.set("Expires", "0");
 
       return new Response(response.body, {
         status: response.status,
