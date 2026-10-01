@@ -1205,10 +1205,78 @@ function setProgressMode(mode, persist = true) {
             document.getElementById('initialConfigAccordion').removeAttribute('open');
         }
 
-        function pairKey(a,b){const x=Math.min(a,b),y=Math.max(a,b);return x+'-'+y;}
+        function pairKey(a,b){
+            const x=Math.min(a,b),y=Math.max(a,b);
+            return x+'-'+y;
+        }
+
+        // 直前の試合で味方だったペアは、次の試合では再び味方にしない。
+        // 1-2 と 2-1 は pairKey() で同じペアとして扱う。
+        function getPreviousTeammatePairs(prev){
+            const pairs=new Set();
+            (prev?.courts || []).forEach(c=>{
+                if(Array.isArray(c.teamA) && c.teamA.length>=2){
+                    pairs.add(pairKey(c.teamA[0],c.teamA[1]));
+                }
+                if(Array.isArray(c.teamB) && c.teamB.length>=2){
+                    pairs.add(pairKey(c.teamB[0],c.teamB[1]));
+                }
+            });
+            return pairs;
+        }
+
         function makeFairCourts(selected,courtCount,pairHistory,prev){
             const pool=[...selected], courts=[];
-            for(let c=0;c<courtCount;c++){ let best=null,bs=Infinity; for(let t=0;t<100;t++){ const q=[...pool].sort(()=>Math.random()-.5).slice(0,4); let sc=(pairHistory[pairKey(q[0],q[1])]||0)*20+(pairHistory[pairKey(q[2],q[3])]||0)*20; const pc=prev?.courts?.[c]; if(pc){const ids=new Set([...pc.teamA,...pc.teamB]);q.forEach(x=>{if(ids.has(x))sc+=2;});} if(sc<bs){bs=sc;best=q;} } const used=new Set(best); pool.splice(0,pool.length,...pool.filter(x=>!used.has(x))); courts.push({courtNum:c+1,teamA:[best[0],best[1]],teamB:[best[2],best[3]]}); [pairKey(best[0],best[1]),pairKey(best[2],best[3])].forEach(k=>pairHistory[k]=(pairHistory[k]||0)+1); } return courts;
+            const previousTeammatePairs=getPreviousTeammatePairs(prev);
+
+            for(let c=0;c<courtCount;c++){
+                let best=null,bestViolations=Infinity,bestScore=Infinity;
+
+                // まず「直前と同じ味方」を0件にすることを最優先。
+                // その条件を満たす候補の中で、過去のペア重複などを比較する。
+                for(let t=0;t<500;t++){
+                    const q=[...pool].sort(()=>Math.random()-.5).slice(0,4);
+                    if(q.length<4) continue;
+
+                    const p1=pairKey(q[0],q[1]);
+                    const p2=pairKey(q[2],q[3]);
+                    const violations=(previousTeammatePairs.has(p1)?1:0)+(previousTeammatePairs.has(p2)?1:0);
+
+                    let sc=(pairHistory[p1]||0)*20+(pairHistory[p2]||0)*20;
+                    const pc=prev?.courts?.[c];
+                    if(pc){
+                        const ids=new Set([...(pc.teamA||[]),...(pc.teamB||[])]);
+                        q.forEach(x=>{if(ids.has(x))sc+=2;});
+                    }
+                    sc+=Math.random()*0.01;
+
+                    if(violations<bestViolations || (violations===bestViolations && sc<bestScore)){
+                        bestViolations=violations;
+                        bestScore=sc;
+                        best=q;
+                        if(bestViolations===0 && bestScore<1) break;
+                    }
+                }
+
+                // 通常はここで必ず0件になる。
+                // 万一ランダム探索で見つからなかった場合も、最小違反候補を使用して
+                // 既存の組み合わせ生成を壊さない。
+                if(!best){
+                    best=[...pool].slice(0,4);
+                }
+
+                const used=new Set(best);
+                pool.splice(0,pool.length,...pool.filter(x=>!used.has(x)));
+
+                const teamA=[best[0],best[1]];
+                const teamB=[best[2],best[3]];
+                courts.push({courtNum:c+1,teamA,teamB});
+
+                [pairKey(teamA[0],teamA[1]),pairKey(teamB[0],teamB[1])].forEach(k=>{
+                    pairHistory[k]=(pairHistory[k]||0)+1;
+                });
+            }
+            return courts;
         }
         function generateFullSchedule(){
             const courtCount = parseInt(document.getElementById('courtCount').value);
