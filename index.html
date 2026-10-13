@@ -746,36 +746,51 @@
                 box-sizing: border-box;
                 zoom: var(--mobile-scale, 1);
             }
-            /* 参加メンバー：番号決定と各操作を分離して誤操作を防ぐ */
-        .member-card { border-color:#059669; }
-        .member-card h2 { margin-bottom:14px; }
-        .member-help { color:#475569; font-size:1.15rem; font-weight:750; line-height:1.5; margin:8px 0 14px; }
-        .member-list { display:grid; gap:10px; margin:12px 0 18px; }
-        .member-row { display:grid; grid-template-columns:72px minmax(0,1fr) 122px 145px; align-items:center; gap:10px; border:2px solid #cbd5e1; border-radius:14px; padding:10px; background:#f8fafc; }
-        .member-num { font-size:2rem; font-weight:1000; text-align:center; background:#e2e8f0; border-radius:12px; padding:10px 2px; }
-        .member-name { font-size:1.45rem; font-weight:900; overflow-wrap:anywhere; }
-        .member-san { font-size:.8rem; font-weight:700; color:#64748b; margin-left:4px; }
-        .member-action { border:3px solid #94a3b8; border-radius:12px; padding:12px 4px; background:white; color:#0f172a; font-size:1.1rem; font-weight:900; cursor:pointer; }
-        .member-action.is-mine { background:#d97706; color:white; border-color:#92400e; }
-        .member-action.is-early { background:#dc2626; color:white; border-color:#991b1b; }
-        .member-pick { display:flex; gap:10px; align-items:center; padding:9px 10px; background:#f8fafc; border-radius:12px; font-size:1.35rem; font-weight:800; }
-        .member-pick input { width:27px; height:27px; accent-color:#059669; }
-        .member-picker { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
-        .member-editor { margin:16px 0; padding:16px; border:2px dashed #94a3b8; border-radius:14px; }
-        .member-editor summary { font-size:1.4rem; font-weight:900; cursor:pointer; }
-        .member-editor-row { display:flex; align-items:center; gap:8px; margin:10px 0; }
-        .member-editor-row input, .member-new-name { min-width:0; flex:1; padding:12px; font-size:1.25rem; border:2px solid #64748b; border-radius:10px; }
-        .member-small-btn { padding:11px; font-size:1.1rem; font-weight:900; border:2px solid #64748b; border-radius:10px; background:#fff; cursor:pointer; }
-        .member-small-btn.danger { color:#b91c1c; }
-        .member-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
-        .member-status { font-size:1.2rem; font-weight:900; color:#065f46; margin:12px 0; }
-        .member-status.warn { color:#b45309; }
-        .member-disabled { opacity:.5; }
         .matches-frame {
                 height: 900px;
                 max-height: 900px;
             }
         }
+
+
+        /* 参加メンバー UI：PCとスマホの両方で常に適用 */
+        .member-card {border:2px solid #a7b9d1; background:#fff; padding:20px; overflow:hidden;}
+        .member-header {display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+        .member-header h2 {margin:0; color:#17213b;}
+        .member-top-actions {display:flex; gap:8px; flex-wrap:wrap;}
+        .member-help {font-size:1rem; line-height:1.5; color:#475569; font-weight:650; margin:8px 0;}
+        .member-steps {display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; padding:13px 10px; background:#f2f6fc; border-radius:14px; margin-bottom:14px;}
+        .member-step {font-size:.9rem; font-weight:800; color:#43516a; display:flex; align-items:center; gap:7px;}
+        .member-step b {background:#dbe5f4; color:#233c68; border-radius:50%; width:30px; height:30px; flex-shrink:0; display:grid; place-items:center; font-size:1rem;}
+        .member-step:first-child b,.member-step:nth-child(2) b {background:#2563eb;color:white;}
+        .member-selection {background:#f0f6fc; padding:14px; border-radius:14px;}
+        .member-section-heading {display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px; font-weight:900; color:#17213b; font-size:1.18rem;}
+        .member-picker {display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;}
+        .member-pick {display:flex; align-items:center; gap:7px; min-width:0; padding:11px 8px; border:1px solid #d2dce9; border-radius:10px; background:white; font-size:1.05rem; font-weight:800; cursor:pointer; overflow-wrap:anywhere;}
+        .member-pick input {width:20px;height:20px;flex-shrink:0;accent-color:#2563eb;}
+        .member-san {font-size:.72em;font-weight:500;color:#64748b;margin-left:3px;}
+        .member-controls {display:grid; grid-template-columns:2fr 1fr; gap:10px; margin:12px 0;}
+        .member-controls .btn {min-width:0; width:100%; margin:0; font-size:1.18rem; padding:14px 8px;}
+        .member-status {font-size:1rem; font-weight:850; color:#166534; margin:8px 0;}
+        .member-status.warn {color:#a16207;}
+        .member-results {background:#f0faf3; border-radius:14px; padding:14px; margin:12px 0;}
+        .member-list {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
+        .member-row {display:grid;grid-template-columns:42px minmax(0,1fr) 70px 86px;gap:6px;align-items:center;min-width:0;background:white;border:1px solid #d7e2e9;border-radius:10px;padding:6px;}
+        .member-num {font-size:1.25rem;font-weight:950;text-align:center;background:#dbeafe;color:#1e40af;border-radius:8px;padding:9px 2px;}
+        .member-name {font-size:1rem;font-weight:850;min-width:0;overflow-wrap:anywhere;}
+        .member-action {min-width:0;cursor:pointer;background:#f1f5f9;border:1px solid #b8c5d6;border-radius:8px;padding:9px 3px;color:#17213b;font-size:.87rem;font-weight:800;white-space:nowrap;}
+        .member-action.is-mine {background:#f59e0b;color:white;border-color:#d97706;}
+        .member-action.early {background:#fff0f0;color:#b91c1c;border-color:#fecaca;}
+        .member-action.is-early {background:#dc2626;color:white;border-color:#b91c1c;}
+        .member-bottom-add {display:block;width:100%;margin:12px 0 0;padding:13px;background:#ecebff;color:#5531a1;border:1px solid #d7d4fa;border-radius:12px;font-size:1.12rem;font-weight:900;cursor:pointer;}
+        .member-small-btn {background:#eff5ff;color:#294c85;border:1px solid #c5d5ed;border-radius:9px;padding:9px 12px;font-size:.92rem;font-weight:850;cursor:pointer;}
+        .member-small-btn.danger {color:#b91c1c;}
+        .member-editor {margin:12px 0;padding:12px;border:1px solid #cbd5e1;border-radius:12px;}
+        .member-editor summary {font-size:1.05rem;font-weight:850;cursor:pointer;}
+        .member-editor-row {display:flex;gap:8px;align-items:center;margin:8px 0;}
+        .member-editor-row input,.member-new-name {min-width:0;flex:1;padding:10px;font-size:1rem;border:1px solid #94a3b8;border-radius:8px;}
+        .member-disabled {opacity:.55;}
+        @media(max-width:600px) { .member-picker {grid-template-columns:repeat(2,minmax(0,1fr));} .member-list {grid-template-columns:1fr;} .member-steps {grid-template-columns:repeat(2,minmax(0,1fr));} .member-row {grid-template-columns:42px minmax(0,1fr) 70px 86px;} }
 
     </style>
 </head>
@@ -819,26 +834,13 @@
 
     <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
     <section class="card member-card" id="memberCard">
-        <h2>👥 参加メンバー</h2>
-        <div class="member-help">① 今日の参加者を選択 → ② 番号をランダム決定 → ③ 全員で確認 → ④ 管理用から組み合わせ作成</div>
-        <div class="member-status" id="memberStatus">参加者を選択してください</div>
-        <div id="memberPicker" class="member-picker"></div>
-        <div class="member-controls">
-            <button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button>
-            <button type="button" class="btn" style="background:#475569" onclick="addExtraPlayer()">➕ 途中参加を追加</button>
-        </div>
-        <div id="memberNumberList" class="member-list"></div>
-        <button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 次回の参加者・番号を設定する</button>
-        <div class="member-help">⭐ 自分：この端末だけでマークします。　🔴 早上がり：全員に反映されます。</div>
-        <details class="member-editor" id="memberEditor">
-            <summary>✏️ 登録名簿を編集（追加・変更・削除）</summary>
-            <div class="member-help">登録名は次回も使用できます。「さん」は自動表示されるため入力不要です。</div>
-            <div id="memberEditorList"></div>
-            <div class="member-editor-row">
-                <input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40">
-                <button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button>
-            </div>
-        </details>
+        <div class="member-header"><h2>👥 参加メンバー</h2><div class="member-top-actions"><button type="button" class="member-small-btn" onclick="document.getElementById('memberEditor').open=!document.getElementById('memberEditor').open">✏️ メンバー編集</button><button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 リセット</button></div></div>
+        <div class="member-steps"><div class="member-step"><b>1</b>参加者を選択</div><div class="member-step"><b>2</b>番号をランダム決定</div><div class="member-step"><b>3</b>全員で確認</div><div class="member-step"><b>4</b>組み合わせ作成</div></div>
+        <div class="member-selection"><div class="member-section-heading"><span>👥 参加するメンバー</span><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div><div id="memberPicker" class="member-picker"></div></div>
+        <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button><button type="button" class="member-small-btn" onclick="shuffleMemberNumbers()">🔀 再シャッフル</button></div>
+        <div class="member-results"><div class="member-section-heading"><span>📋 本日の番号一覧</span></div><div class="member-help">番号と名前を確認し、各自「☆ 自分」を設定してください。早上がりは赤で表示されます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div></div>
+        <button type="button" class="member-bottom-add" onclick="addExtraPlayer()">＋ 途中参加を追加</button>
+        <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div></details>
     </section>
 
     <!-- 3. 試合スケジュール -->
@@ -1173,6 +1175,18 @@ let isApplyingServerState = false;
             toggleAbsent(num);
             renderMembers();
         }
+        function addGuestMember() {
+            if(matchesData.length) { alert('試合中の追加は「途中参加を追加」を使ってください。'); return; }
+            const name=nextGuestName();
+            const m={id:memberId(),name};
+            roster.push(m);
+            selectedMemberIds.push(m.id);
+            memberNumbers={};
+            myNumber=null;
+            localStorage.removeItem('badminton_my_num');
+            renderMembers();
+            saveServerState();
+        }
         function renderMembers() {
             const picker=document.getElementById('memberPicker');
             const list=document.getElementById('memberNumberList');
@@ -1181,7 +1195,7 @@ let isApplyingServerState = false;
             const running=matchesData.length>0;
             picker.innerHTML=roster.map(m=>`<label class="member-pick"><input type="checkbox" ${selectedMemberIds.includes(m.id)?'checked ':''}${running?'disabled ':''}onchange="changeMemberSelection('${m.id}',this.checked)"><span>${memberEsc(m.name)}<small class="member-san">さん</small></span></label>`).join('');
             const rows=selectedMemberIds.map(id=>({id,member:roster.find(m=>m.id===id),num:Number(memberNumbers[id])})).filter(x=>x.member&&x.num>0).sort((a,b)=>a.num-b.num);
-            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり中':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
+            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action early '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり中':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
             editor.innerHTML=roster.map(m=>`<div class="member-editor-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40"><button type="button" class="member-small-btn" onclick="updateRosterName('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button></div>`).join('');
             const ready=selectedMemberIds.length>=4 && selectedMemberIds.every(id=>Number(memberNumbers[id])>0);
             const status=document.getElementById('memberStatus');
