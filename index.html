@@ -773,7 +773,9 @@
         .member-controls .btn {min-width:0; width:100%; margin:0; font-size:1.18rem; padding:14px 8px;}
         .member-status {font-size:1rem; font-weight:850; color:#166534; margin:8px 0;}
         .member-status.warn {color:#a16207;}
-        .member-results {background:#f0faf3; border-radius:14px; padding:14px; margin:12px 0;}
+        .member-results {scroll-margin-top:16px;background:#f0faf3; border-radius:14px; padding:14px; margin:12px 0;}
+        .member-result-flash {outline:3px solid #2d68ec;outline-offset:3px;animation:memberFlash 1.8s ease-out forwards;}
+        @keyframes memberFlash {0%{outline-color:#2d68ec}100%{outline-color:transparent}}
         .member-list {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
         .member-row {display:grid;grid-template-columns:42px minmax(0,1fr) 70px 86px;gap:6px;align-items:center;min-width:0;background:white;border:1px solid #d7e2e9;border-radius:10px;padding:6px;}
         .member-num {font-size:1.25rem;font-weight:950;text-align:center;background:#dbeafe;color:#1e40af;border-radius:8px;padding:9px 2px;}
@@ -821,10 +823,10 @@
     <details class="card member-card" id="memberCard" open>
         <summary class="member-accordion-summary">👥 参加メンバー</summary>
         <div class="member-header"><div class="member-top-actions"><button type="button" class="member-small-btn" onclick="document.getElementById('memberEditor').open=!document.getElementById('memberEditor').open">✏️ メンバー編集</button><button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 リセット</button></div></div>
-        <div class="member-steps"><div class="member-step"><b>1</b>参加者を選択</div><div class="member-step"><b>2</b>番号をランダム決定</div><div class="member-step"><b>3</b>全員で確認</div><div class="member-step"><b>4</b>組み合わせ作成</div></div>
+        <div class="member-steps"><div class="member-step"><b>1</b>参加者を選択</div><div class="member-step"><b>2</b>番号をランダム決定</div><div class="member-step"><b>3</b>組み合わせ作成</div></div>
         <div class="member-selection"><div class="member-section-heading"><span>👥 参加するメンバー</span><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div><div id="memberPicker" class="member-picker"></div></div>
         <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button><button type="button" class="member-small-btn" onclick="shuffleMemberNumbers()">🔀 再シャッフル</button></div>
-        <div class="member-results"><div class="member-section-heading"><span>📋 本日の番号一覧</span></div><div class="member-help">番号と名前を確認し、各自「☆ 自分」を設定してください。早上がりは赤で表示されます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div></div>
+        <div class="member-results"><div class="member-section-heading"><span>📋 本日の番号一覧</span></div><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div></div>
         <button type="button" class="member-bottom-add" onclick="addExtraPlayer()">＋ 途中参加を追加</button>
         <div class="member-config">
             <h2>⚙️ コート設定・試合モード</h2>
@@ -1134,7 +1136,6 @@ let isApplyingServerState = false;
             if(matchesData.length) {alert('試合開始後は番号を変更できません。');return;}
             if(selectedMemberIds.length<4) {alert('参加者は4人以上選択してください。');return;}
             if(selectedMemberIds.length>30) {alert('参加者は30人までです。');return;}
-            if(!confirm('参加者の番号をランダムに決定しますか？')) return;
             markInteraction();
             const nums=selectedMemberIds.map((_,i)=>i+1);
             for(let i=nums.length-1;i>0;i--) {const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}
@@ -1143,6 +1144,13 @@ let isApplyingServerState = false;
             document.getElementById('playerCount').value=currentMaxPlayers;
             myNumber=null;localStorage.removeItem('badminton_my_num');
             renderMembers();renderSelectors();scheduleStateSave();
+            const result=document.querySelector('.member-results');
+            if(result) {
+                result.classList.remove('member-result-flash');
+                void result.offsetWidth;
+                result.classList.add('member-result-flash');
+                result.scrollIntoView({behavior:'smooth',block:'start'});
+            }
         }
         function updateRosterName(id) {
             const input=document.querySelector('[data-member-name="'+id+'"]');
@@ -1203,7 +1211,7 @@ let isApplyingServerState = false;
             editor.innerHTML=roster.map(m=>`<div class="member-editor-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40"><button type="button" class="member-small-btn" onclick="updateRosterName('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button></div>`).join('');
             const ready=selectedMemberIds.length>=4 && selectedMemberIds.every(id=>Number(memberNumbers[id])>0);
             const status=document.getElementById('memberStatus');
-            status.textContent=running?'試合進行中：'+selectedMemberIds.length+'人（番号は固定）':(ready?'番号決定済み：'+selectedMemberIds.length+'人。全員で確認してから組み合わせを作成してください。':'参加者 '+selectedMemberIds.length+'人：番号を決定してください。');
+            status.textContent=running?'試合進行中：'+selectedMemberIds.length+'人（番号は固定）':(ready?'番号決定済み：'+selectedMemberIds.length+'人。下の番号一覧に表示しています。':'参加者 '+selectedMemberIds.length+'人：番号を決定してください。');
             status.classList.toggle('warn',!ready);
             document.getElementById('shuffleMembersBtn').disabled=running;
             document.getElementById('shuffleMembersBtn').classList.toggle('member-disabled',running);
@@ -2100,7 +2108,7 @@ async function loadServerState(isInitial = false, force = false) {
 
     // 未保存のローカル操作を、GETで上書きしない。
     // forceはrevision判定を飛ばすためのものだが、通常の画面復帰では保存中なら待つ。
-    if (!isInitial && (saveInFlight || saveQueued) && !conflictRetrying) return;
+    if (!isInitial && (saveInFlight || saveQueued || saveTimer || isInteracting) && !conflictRetrying) return;
 
     loadInFlight = true;
     if (isInitial) showLoading(true);
