@@ -746,7 +746,32 @@
                 box-sizing: border-box;
                 zoom: var(--mobile-scale, 1);
             }
-            .matches-frame {
+            /* 参加メンバー：番号決定と各操作を分離して誤操作を防ぐ */
+        .member-card { border-color:#059669; }
+        .member-card h2 { margin-bottom:14px; }
+        .member-help { color:#475569; font-size:1.15rem; font-weight:750; line-height:1.5; margin:8px 0 14px; }
+        .member-list { display:grid; gap:10px; margin:12px 0 18px; }
+        .member-row { display:grid; grid-template-columns:72px minmax(0,1fr) 122px 145px; align-items:center; gap:10px; border:2px solid #cbd5e1; border-radius:14px; padding:10px; background:#f8fafc; }
+        .member-num { font-size:2rem; font-weight:1000; text-align:center; background:#e2e8f0; border-radius:12px; padding:10px 2px; }
+        .member-name { font-size:1.45rem; font-weight:900; overflow-wrap:anywhere; }
+        .member-san { font-size:.8rem; font-weight:700; color:#64748b; margin-left:4px; }
+        .member-action { border:3px solid #94a3b8; border-radius:12px; padding:12px 4px; background:white; color:#0f172a; font-size:1.1rem; font-weight:900; cursor:pointer; }
+        .member-action.is-mine { background:#d97706; color:white; border-color:#92400e; }
+        .member-action.is-early { background:#dc2626; color:white; border-color:#991b1b; }
+        .member-pick { display:flex; gap:10px; align-items:center; padding:9px 10px; background:#f8fafc; border-radius:12px; font-size:1.35rem; font-weight:800; }
+        .member-pick input { width:27px; height:27px; accent-color:#059669; }
+        .member-picker { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
+        .member-editor { margin:16px 0; padding:16px; border:2px dashed #94a3b8; border-radius:14px; }
+        .member-editor summary { font-size:1.4rem; font-weight:900; cursor:pointer; }
+        .member-editor-row { display:flex; align-items:center; gap:8px; margin:10px 0; }
+        .member-editor-row input, .member-new-name { min-width:0; flex:1; padding:12px; font-size:1.25rem; border:2px solid #64748b; border-radius:10px; }
+        .member-small-btn { padding:11px; font-size:1.1rem; font-weight:900; border:2px solid #64748b; border-radius:10px; background:#fff; cursor:pointer; }
+        .member-small-btn.danger { color:#b91c1c; }
+        .member-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+        .member-status { font-size:1.2rem; font-weight:900; color:#065f46; margin:12px 0; }
+        .member-status.warn { color:#b45309; }
+        .member-disabled { opacity:.5; }
+        .matches-frame {
                 height: 900px;
                 max-height: 900px;
             }
@@ -780,7 +805,7 @@
         </div>
 
         <button class="btn" onclick="createNewSchedule()">今日の組み合わせ作成</button>
-        <div class="sub-note">※早上がり・追加の変更は下から</div>
+        <div class="sub-note">※参加者・番号の設定は下の「参加メンバー」から</div>
 
         <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #cbd5e1;">
             <h2 style="margin:0 0 8px;">🎮 試合モード</h2>
@@ -790,26 +815,31 @@
             </div>
         </div>
 
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 2px dashed #ca8a04;">
-            <label style="font-size: 1.5rem; color: #713f0e; font-weight: 900;">🏃 早上がり設定</label>
-            <div style="font-size: 1.15rem; color: #854d0e; margin-top: 4px; margin-bottom: 10px; font-weight: bold;">
-                赤色＝早上がり。設定しただけでは組み合わせを変更しません。試合終了後、次の試合にその番号が入る場合だけ再編成します。
-            </div>
-            <div class="grid-selector" id="absentContainer"></div>
-            <div style="margin-top: 20px;">
-                <button class="btn-add-player" onclick="addExtraPlayer()">➕ 1人増やす（途中参加を追加）</button>
-            </div>
-        </div>
-
     </details>
 
-    <!-- 2. 自分の番号設定 -->
-    <div class="card my-number-card" style="border-left: 12px solid var(--highlight-color);">
-        <h2>⭐ 自分の番号をマーク</h2>
-        <select id="myNumberSelect" class="my-number-select" onchange="selectMyNumber(parseInt(this.value) || null)">
-            <option value="">選択してください</option>
-        </select>
-    </div>
+    <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
+    <section class="card member-card" id="memberCard">
+        <h2>👥 参加メンバー</h2>
+        <div class="member-help">① 今日の参加者を選択 → ② 番号をランダム決定 → ③ 全員で確認 → ④ 管理用から組み合わせ作成</div>
+        <div class="member-status" id="memberStatus">参加者を選択してください</div>
+        <div id="memberPicker" class="member-picker"></div>
+        <div class="member-controls">
+            <button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button>
+            <button type="button" class="btn" style="background:#475569" onclick="addExtraPlayer()">➕ 途中参加を追加</button>
+        </div>
+        <div id="memberNumberList" class="member-list"></div>
+        <button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 次回の参加者・番号を設定する</button>
+        <div class="member-help">⭐ 自分：この端末だけでマークします。　🔴 早上がり：全員に反映されます。</div>
+        <details class="member-editor" id="memberEditor">
+            <summary>✏️ 登録名簿を編集（追加・変更・削除）</summary>
+            <div class="member-help">登録名は次回も使用できます。「さん」は自動表示されるため入力不要です。</div>
+            <div id="memberEditorList"></div>
+            <div class="member-editor-row">
+                <input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40">
+                <button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button>
+            </div>
+        </details>
+    </section>
 
     <!-- 3. 試合スケジュール -->
 
@@ -837,6 +867,11 @@
 
     <script>
         let myNumber = localStorage.getItem('badminton_my_num') ? parseInt(localStorage.getItem('badminton_my_num')) : null;
+        let roster = []; // {id,name} 常連・ゲストの登録名簿
+        let selectedMemberIds = []; // 本日の参加者
+        let memberNumbers = {}; // メンバーID -> 本日の番号
+        let memberAssignmentKey = ''; // 各端末の自分マークのリセット判定
+
         let absentPlayers = new Set();
         let matchesData = [];         
         let originalMatchesData = []; 
@@ -879,15 +914,22 @@ let isApplyingServerState = false;
             initSelectOptions();
             currentMaxPlayers = parseInt(document.getElementById('playerCount').value);
             document.body.dataset.progressMode = 'match';
+            ensureRoster();
             renderSelectors();
+            renderMembers();
 
             document.getElementById('playerCount').addEventListener('change', (e) => {
+                if(matchesData.length) {alert('試合中は人数を変更できません。途中参加は参加メンバーから追加してください。');e.target.value=currentMaxPlayers;return;}
                 currentMaxPlayers = parseInt(e.target.value);
                 markInteraction();
+                // 管理用人数変更と参加者リストを合わせる（既存番号があれば保護）
+                syncSelectionToCount(currentMaxPlayers);
                 renderSelectors();
+                renderMembers();
+                scheduleStateSave();
             });
 
-            document.getElementById('courtCount').addEventListener('change', markInteraction);
+            document.getElementById('courtCount').addEventListener('change', (e) => { if(matchesData.length){alert('試合中はコート数を変更できません。');e.target.value=matchesData[0]?.courts?.length||2;return;}markInteraction();scheduleStateSave(); });
 
             loadServerState(true);
 
@@ -1031,46 +1073,161 @@ let isApplyingServerState = false;
             return getCurrentMatchNum() + 1;
         }
 
-        function addExtraPlayer() {
-            markInteraction();
-            if (currentMaxPlayers >= 30) return;
-            currentMaxPlayers++;
-
-            const addedPlayer = currentMaxPlayers;
-            const playerSelect = document.getElementById('playerCount');
-            let exists = Array.from(playerSelect.options).some(opt => parseInt(opt.value) === addedPlayer);
-            if (!exists) {
-                const opt = document.createElement('option');
-                opt.value = addedPlayer;
-                opt.textContent = addedPlayer + '人';
-                playerSelect.appendChild(opt);
+        function memberEsc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function nextGuestName() {
+            let n=1;
+            while(roster.some(m=>m.name === 'ゲスト'+n)) n++;
+            return 'ゲスト'+n;
+        }
+        function memberId() { return 'member_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9); }
+        function ensureRoster() {
+            if (!roster.length) {
+                for(let i=1;i<=currentMaxPlayers;i++) roster.push({id:'legacy_'+i,name:'ゲスト'+i});
+                selectedMemberIds=roster.map(m=>m.id);
+                memberNumbers=Object.fromEntries(roster.map((m,i)=>[m.id,i+1]));
             }
-            playerSelect.value = addedPlayer;
-
+        }
+        function syncSelectionToCount(count) {
+            ensureRoster();
+            if (matchesData.length) return;
+            while(selectedMemberIds.length<count) {
+                let next=roster.find(m=>!selectedMemberIds.includes(m.id));
+                if(!next) { next={id:memberId(),name:nextGuestName()};roster.push(next); }
+                selectedMemberIds.push(next.id);
+            }
+            if(selectedMemberIds.length>count) selectedMemberIds=selectedMemberIds.slice(0,count);
+            memberNumbers={};
+            myNumber=null;
+            localStorage.removeItem('badminton_my_num');
+        }
+        function changeMemberSelection(id,checked) {
+            if(matchesData.length) {alert('試合開始後は参加者を選び直せません。途中参加ボタンを使用してください。');renderMembers();return;}
+            markInteraction();
+            if(checked && !selectedMemberIds.includes(id)) selectedMemberIds.push(id);
+            if(!checked) selectedMemberIds=selectedMemberIds.filter(x=>x!==id);
+            memberNumbers={};
+            myNumber=null;localStorage.removeItem('badminton_my_num');
+            currentMaxPlayers=selectedMemberIds.length;
+            document.getElementById('playerCount').value=Math.max(4,currentMaxPlayers);
+            renderMembers();renderSelectors();scheduleStateSave();
+        }
+        function prepareNextSession() {
+            if(!confirm('現在の試合スケジュールを終了して、次回の参加者・番号を設定しますか？'))return;
+            markInteraction();
+            matchesData=[];originalMatchesData=[];baseMatchesData=[];
+            completedMatches.clear();courtProgress={};absentPlayers.clear();appliedAbsentPlayers.clear();
+            pendingAddedPlayers.clear();newPlayers.clear();playerJoinMatch={};matchTimes={};
+            memberNumbers={};myNumber=null;localStorage.removeItem('badminton_my_num');
+            currentMaxPlayers=selectedMemberIds.length;
+            document.getElementById('playerCount').value=Math.max(4,currentMaxPlayers);
+            renderSelectors();renderMembers();renderMatches(true);saveServerState();
+        }
+        function shuffleMemberNumbers() {
+            if(matchesData.length) {alert('試合開始後は番号を変更できません。');return;}
+            if(selectedMemberIds.length<4) {alert('参加者は4人以上選択してください。');return;}
+            if(selectedMemberIds.length>30) {alert('参加者は30人までです。');return;}
+            if(!confirm('参加者の番号をランダムに決定しますか？')) return;
+            markInteraction();
+            const nums=selectedMemberIds.map((_,i)=>i+1);
+            for(let i=nums.length-1;i>0;i--) {const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}
+            memberNumbers=Object.fromEntries(selectedMemberIds.map((id,i)=>[id,nums[i]]));
+            currentMaxPlayers=selectedMemberIds.length;
+            document.getElementById('playerCount').value=currentMaxPlayers;
+            myNumber=null;localStorage.removeItem('badminton_my_num');
+            renderMembers();renderSelectors();scheduleStateSave();
+        }
+        function updateRosterName(id) {
+            const input=document.querySelector('[data-member-name="'+id+'"]');
+            const m=roster.find(x=>x.id===id);
+            if(!m||!input) return;
+            const value=input.value.trim().replace(/さん$/,'').trim();
+            if(!value) {alert('名前を入力してください。');return;}
+            if(roster.some(x=>x.id!==id&&x.name===value)) {alert('同じ名前が登録されています。');return;}
+            m.name=value;
+            markInteraction();renderMembers();scheduleStateSave();
+        }
+        function addRosterMember() {
+            const input=document.getElementById('memberNewName');
+            const value=(input.value.trim()||nextGuestName()).replace(/さん$/,'').trim();
+            if(roster.some(m=>m.name===value)) {alert('同じ名前が登録されています。');return;}
+            roster.push({id:memberId(),name:value});
+            markInteraction();renderMembers();scheduleStateSave();
+        }
+        function removeRosterMember(id) {
+            const m=roster.find(x=>x.id===id);
+            if(!m||!confirm(m.name+'さんを登録名簿から削除しますか？')) return;
+            if(matchesData.length && selectedMemberIds.includes(id)) {alert('試合中の参加者は削除できません。');return;}
+            roster=roster.filter(x=>x.id!==id);
+            selectedMemberIds=selectedMemberIds.filter(x=>x!==id);
+            delete memberNumbers[id];
+            if(!matchesData.length) {currentMaxPlayers=selectedMemberIds.length;document.getElementById('playerCount').value=Math.max(4,currentMaxPlayers);}
+            markInteraction();renderMembers();renderSelectors();scheduleStateSave();
+        }
+        function toggleMemberEarly(num) {
+            const m=roster.find(x=>memberNumbers[x.id]===num);
+            if(!m) return;
+            const action=absentPlayers.has(num)?'早上がりを解除':'早上がりに設定';
+            if(!confirm(num+'番・'+m.name+'さんの'+action+'しますか？')) return;
+            toggleAbsent(num);
+            renderMembers();
+        }
+        function renderMembers() {
+            const picker=document.getElementById('memberPicker');
+            const list=document.getElementById('memberNumberList');
+            const editor=document.getElementById('memberEditorList');
+            if(!picker||!list||!editor)return;
+            const running=matchesData.length>0;
+            picker.innerHTML=roster.map(m=>`<label class="member-pick"><input type="checkbox" ${selectedMemberIds.includes(m.id)?'checked ':''}${running?'disabled ':''}onchange="changeMemberSelection('${m.id}',this.checked)"><span>${memberEsc(m.name)}<small class="member-san">さん</small></span></label>`).join('');
+            const rows=selectedMemberIds.map(id=>({id,member:roster.find(m=>m.id===id),num:Number(memberNumbers[id])})).filter(x=>x.member&&x.num>0).sort((a,b)=>a.num-b.num);
+            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり中':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
+            editor.innerHTML=roster.map(m=>`<div class="member-editor-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40"><button type="button" class="member-small-btn" onclick="updateRosterName('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button></div>`).join('');
+            const ready=selectedMemberIds.length>=4 && selectedMemberIds.every(id=>Number(memberNumbers[id])>0);
+            const status=document.getElementById('memberStatus');
+            status.textContent=running?'試合進行中：'+selectedMemberIds.length+'人（番号は固定）':(ready?'番号決定済み：'+selectedMemberIds.length+'人。全員で確認してから組み合わせを作成してください。':'参加者 '+selectedMemberIds.length+'人：番号を決定してください。');
+            status.classList.toggle('warn',!ready);
+            document.getElementById('shuffleMembersBtn').disabled=running;
+            document.getElementById('shuffleMembersBtn').classList.toggle('member-disabled',running);
+        }
+        function addExtraPlayer() {
+            if (!matchesData.length) {alert('試合開始前は参加メンバーにチェックを入れてから番号を決定してください。');return;}
+            if (currentMaxPlayers>=30) {alert('最大30人です。');return;}
+            const available=roster.filter(m=>!selectedMemberIds.includes(m.id));
+            const guide=available.map((m,i)=>(i+1)+': '+m.name+'さん').join('\n');
+            const answer=prompt('途中参加する人を選んでください。\n'+guide+'\n\n番号を入力、または新しい名前を入力してください。',available.length?'1':nextGuestName());
+            if(answer===null)return;
+            let member=null;
+            const n=Number(answer.trim());
+            if(Number.isInteger(n)&&n>=1&&n<=available.length) member=available[n-1];
+            else {
+                const name=answer.trim().replace(/さん$/,'').trim()||nextGuestName();
+                member=available.find(m=>m.name===name);
+                if(!member) {member={id:memberId(),name};roster.push(member);}
+            }
+            if(!confirm(member.name+'さんを'+(currentMaxPlayers+1)+'番で途中参加させますか？'))return;
+            selectedMemberIds.push(member.id);
+            memberNumbers[member.id]=currentMaxPlayers+1;
+            markInteraction();
+            currentMaxPlayers++;
+            const addedPlayer=currentMaxPlayers;
+            document.getElementById('playerCount').value=currentMaxPlayers;
             absentPlayers.delete(addedPlayer);
             pendingAddedPlayers.add(addedPlayer);
             newPlayers.add(addedPlayer);
-            playerJoinMatch[addedPlayer] = nextMatchNumberForJoin();
-
-            // 途中参加者は「次の1試合だけ参加保証」。
-            // その後は通常の公平ロジックに戻し、既存参加者の出場回数はリセットしない。
-            const nextNum = getCurrentMatchNum() + 1;
-            if (matchesData.some(m => m.matchNum === nextNum)) {
-                const locked = matchesData.filter(m => m.matchNum < nextNum);
-                const active = [];
-                for (let i = 1; i <= currentMaxPlayers; i++) {
-                    if (!absentPlayers.has(i)) active.push(i);
-                }
-                const future = generateFairFutureFromLocked(nextNum, locked, active, new Set([addedPlayer]));
-                matchesData = [...locked, ...future];
-                originalMatchesData = JSON.parse(JSON.stringify(matchesData));
-                baseMatchesData = JSON.parse(JSON.stringify(matchesData));
+            playerJoinMatch[addedPlayer]=nextMatchNumberForJoin();
+            const nextNum=getCurrentMatchNum()+1;
+            if(matchesData.some(m=>m.matchNum===nextNum)) {
+                const locked=matchesData.filter(m=>m.matchNum<nextNum);
+                const active=[];
+                for(let i=1;i<=currentMaxPlayers;i++)if(!absentPlayers.has(i))active.push(i);
+                const future=generateFairFutureFromLocked(nextNum,locked,active,new Set([addedPlayer]));
+                matchesData=[...locked,...future];
+                originalMatchesData=JSON.parse(JSON.stringify(matchesData));
+                baseMatchesData=JSON.parse(JSON.stringify(matchesData));
                 pendingAddedPlayers.clear();
             }
-
-            renderSelectors();
-            renderMatches(true);
-            saveServerState();
+            renderSelectors();renderMembers();renderMatches(true);saveServerState();
         }
 
         function renderSelectors() {
@@ -1087,6 +1244,7 @@ let isApplyingServerState = false;
             }
 
             const absentContainer = document.getElementById('absentContainer');
+            if (!absentContainer) return;
             absentContainer.innerHTML = '';
             for (let i = 1; i <= currentMaxPlayers; i++) {
                 const btn = document.createElement('button');
@@ -1124,6 +1282,7 @@ let isApplyingServerState = false;
                 localStorage.setItem('badminton_my_num', num);
             }
             renderSelectors();
+            renderMembers();
             renderMatches(false);
         }
         function toggleAbsent(num) {
@@ -1146,6 +1305,7 @@ let isApplyingServerState = false;
                 appliedAbsentPlayers = new Set(absentPlayers);
             }
             renderSelectors();
+            renderMembers();
             renderMatches(false);
             scheduleStateSave();
         }
@@ -1189,8 +1349,15 @@ function setProgressMode(mode, persist = true) {
         }
 
         function createNewSchedule() {
+            if(matchesData.length) {alert('新しく番号を決める場合は「次回の参加者・番号を設定する」を押してください。');return;}
             markInteraction();
-            if (!confirm('今日の組み合わせを作成しますか？現在の進行状態はリセットされます。')) return;
+            if(selectedMemberIds.length<4 || !selectedMemberIds.every(id=>Number(memberNumbers[id])>0)) {
+                alert('先に参加メンバーで番号をランダム決定してください。');return;
+            }
+            if(selectedMemberIds.length!==currentMaxPlayers) {
+                alert('人数と参加メンバー数が一致しません。参加メンバーを確認してください。');return;
+            }
+            if (!confirm('全員の番号を確認しましたか？ 今日の組み合わせを作成すると番号が固定され、現在の進行状態はリセットされます。')) return;
             completedMatches.clear();
             appliedAbsentPlayers.clear();
             matchTimes = {};
@@ -1202,6 +1369,7 @@ function setProgressMode(mode, persist = true) {
             scheduleDate = getTodayKey();
             scrollVersion++;
             generateFullSchedule();
+            renderMembers();
             document.getElementById('initialConfigAccordion').removeAttribute('open');
         }
 
@@ -1826,6 +1994,9 @@ function saveServerState() {
         currentMaxPlayers,
         playerCount: document.getElementById('playerCount').value,
         courtCount: document.getElementById('courtCount').value,
+        roster,
+        selectedMemberIds,
+        memberNumbers,
         absentPlayers: Array.from(absentPlayers),
         completedMatches: Array.from(completedMatches),
         courtProgress,
@@ -1986,6 +2157,17 @@ async function loadServerState(isInitial = false, force = false) {
             const courtSelect = document.getElementById('courtCount');
             if (courtSelect) courtSelect.value = state.courtCount || 2;
 
+            roster=Array.isArray(state.roster)?state.roster.filter(m=>m&&typeof m.id==='string'&&typeof m.name==='string'):[];
+            selectedMemberIds=Array.isArray(state.selectedMemberIds)?state.selectedMemberIds:[];
+            memberNumbers=state.memberNumbers&&typeof state.memberNumbers==='object'?state.memberNumbers:{};
+            if(!roster.length && !Array.isArray(state.roster)) ensureRoster();
+            const newAssignmentKey=JSON.stringify(memberNumbers);
+            const savedAssignmentKey=localStorage.getItem('badminton_assignment_key');
+            if(savedAssignmentKey && savedAssignmentKey!==newAssignmentKey) {
+                myNumber=null;localStorage.removeItem('badminton_my_num');
+            }
+            memberAssignmentKey=newAssignmentKey;
+            localStorage.setItem('badminton_assignment_key',newAssignmentKey);
             absentPlayers = new Set(state.absentPlayers || []);
             completedMatches = new Set(state.completedMatches || []);
             courtProgress = state.courtProgress || {};
@@ -2021,6 +2203,7 @@ async function loadServerState(isInitial = false, force = false) {
             lastServerJson = jsonStr;
 
             renderSelectors();
+            renderMembers();
             setProgressMode(state.progressMode || 'match', false);
             renderMatches(isInitial || shouldRemoteScroll);
             initialLoadCompleted = true;
