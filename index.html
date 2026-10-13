@@ -862,6 +862,14 @@
           .member-card .member-config-court select,.member-card .mode-btn {font-size:1.28rem;}
           .member-card .member-create-btn {font-size:1.3rem;}
         }
+
+    /* サーバー保存状況：操作を増やさず控えめに表示 */
+    .server-save-status { display:flex; justify-content:center; align-items:center; gap:6px; min-height:24px; margin:-5px 0 13px; font-size:13px; font-weight:600; color:#64748b; }
+    .server-save-status[data-state="saved"] { color:#15803d; }
+    .server-save-status[data-state="saving"] { color:#475569; }
+    .server-save-status[data-state="error"] { color:#b91c1c; }
+    .server-save-status[data-state="conflict"] { color:#b45309; }
+    @media(max-width:600px) { .server-save-status { font-size:15px; min-height:28px; } }
     </style>
 </head>
 <body>
@@ -870,6 +878,7 @@
     <div class="loading-overlay" id="loading">データ更新中...</div>
 
     <h1>🏸 バドミントン 組み合わせ表</h1>
+    <div id="serverSaveStatus" class="server-save-status" data-state="checking" role="status" aria-live="polite">● サーバー確認中…</div>
 
     <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
     <details class="card member-card" id="memberCard" open>
@@ -962,6 +971,24 @@ let saveTimer = null;
 let loadInFlight = false;
 let initialLoadCompleted = false;
 let conflictRetrying = false;
+
+let serverSaveStatus = 'checking';
+function setServerSaveStatus(status) {
+    serverSaveStatus = status;
+    const el = document.getElementById('serverSaveStatus');
+    if (!el) return;
+    const labels = {
+        checking: '● サーバー確認中…',
+        saving: '◌ サーバー保存中…',
+        saved: '✓ サーバー保存済み',
+        received: '✓ サーバー同期済み',
+        error: '⚠ 保存できませんでした（再試行中）',
+        conflict: '⚠ 他端末の更新を確認中…'
+    };
+    el.dataset.state = status;
+    el.textContent = labels[status] || labels.checking;
+}
+
 
 // サーバーから受信した状態を反映中かどうか
 let isApplyingServerState = false;
@@ -1404,6 +1431,7 @@ let isApplyingServerState = false;
         }
 
         function scheduleStateSave() {
+            setServerSaveStatus('saving');
             if (saveTimer) clearTimeout(saveTimer);
             saveTimer = setTimeout(() => {
                 saveTimer = null;
@@ -2078,6 +2106,7 @@ function saveServerState() {
     if (!initialLoadCompleted || isApplyingServerState) return;
 
     if (saveInFlight) {
+        setServerSaveStatus('saving');
         saveQueued = true;
         return;
     }
@@ -2124,6 +2153,7 @@ function saveServerState() {
         saveInFlight = false;
 
         if (ok && result?.ok) {
+            setServerSaveStatus(saveQueued ? 'saving' : 'saved');
             serverRevision = Number(result.revision) || baseRevision;
             lastServerJson = JSON.stringify({
                 revision: serverRevision,
@@ -2138,6 +2168,7 @@ function saveServerState() {
         }
 
         if (status === 409 && result?.conflict) {
+            setServerSaveStatus('conflict');
             // 競合時にローカル状態を強制再保存すると、別端末の操作を上書きしてしまう。
             // 最新のサーバー状態を取得して、この端末もそこへ戻す。
             saveQueued = false;
@@ -2150,6 +2181,7 @@ function saveServerState() {
             return;
         }
 
+        setServerSaveStatus('error');
         saveQueued = true;
         setTimeout(() => {
             if (saveQueued && !saveInFlight && !isApplyingServerState) {
@@ -2160,6 +2192,7 @@ function saveServerState() {
     })
     .catch(() => {
         saveInFlight = false;
+        setServerSaveStatus('error');
         saveQueued = true;
         setTimeout(() => {
             if (saveQueued && !saveInFlight && !isApplyingServerState) {
@@ -2191,7 +2224,7 @@ async function loadServerState(isInitial = false, force = false) {
         const jsonStr = await response.text();
 
         if (!jsonStr) {
-            if (isInitial) initialLoadCompleted = true;
+            if (isInitial) { initialLoadCompleted = true; setServerSaveStatus('received'); }
             return;
         }
 
@@ -2210,6 +2243,7 @@ async function loadServerState(isInitial = false, force = false) {
 
         // 初回以外は、古いKV読み出しで画面を巻き戻さない。
         // forceは409競合時など、最新状態を明示的に採用するときだけ使う。
+        if (isInitial && !saveInFlight && !saveQueued) setServerSaveStatus('received');
         if (!isInitial && !force && remoteRevision <= localRevision) return;
         if (!isInitial && !force && jsonStr === lastServerJson) return;
 
@@ -2294,6 +2328,7 @@ async function loadServerState(isInitial = false, force = false) {
             ensureUniquePlayersAllMatches(originalMatchesData);
             ensureUniquePlayersAllMatches(baseMatchesData);
             lastServerJson = jsonStr;
+            if (!saveInFlight && !saveQueued && !saveTimer) setServerSaveStatus('received');
 
             renderSelectors();
             renderMembers();
@@ -2304,6 +2339,7 @@ async function loadServerState(isInitial = false, force = false) {
             isApplyingServerState = false;
         }
     } catch (error) {
+        if (serverSaveStatus === 'checking' || serverSaveStatus === 'received') setServerSaveStatus('error');
         console.error('サーバー状態の取得に失敗:', error);
         if (isInitial) initialLoadCompleted = true;
     } finally {
