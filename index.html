@@ -810,6 +810,38 @@
         .member-config-mode .mode-buttons {margin:0;}
         .member-create-btn {display:block;width:100%;margin:16px 0 0;}
         @media(max-width:600px) {.member-config-grid {grid-template-columns:1fr;gap:12px;} .member-config-court select {max-width:200px;}}
+
+        /* 高齢の方にも読みやすい参加メンバー操作画面 */
+        .member-card {font-size:1.18rem;line-height:1.55;}
+        .member-card .member-help,.member-card .member-status {font-size:1.13rem;}
+        .member-card .member-small-btn {font-size:1.1rem;padding:11px 14px;}
+        .member-card .member-step {font-size:1.08rem;}
+        .member-card .member-section-heading {font-size:1.3rem;}
+        .member-card .member-pick {font-size:1.19rem;min-height:46px;}
+        .member-card .member-pick input {width:24px;height:24px;}
+        .member-card .member-name {font-size:1.14rem;}
+        .member-card .member-num {font-size:1.5rem;}
+        .member-card .member-action {font-size:1.03rem;padding:11px 4px;}
+        .member-card .member-row {grid-template-columns:46px minmax(0,1fr) 79px 98px;gap:5px;}
+        .member-card .member-editor summary {font-size:1.25rem;}
+        .member-card .member-editor-row input,.member-card .member-new-name {font-size:1.15rem;}
+        .member-card .member-config-label,.member-card .member-config-court label {font-size:1.17rem;}
+        .member-card .member-config-court select {font-size:1.22rem;}
+        .member-selection {margin:0 0 12px;scroll-margin-top:20px;}
+        .member-selection-summary {display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;font-size:1.33rem;font-weight:900;color:#17213b;}
+        .member-selection-summary::-webkit-details-marker {display:none;}
+        .member-selection-summary::after {content:'▼';font-size:.92rem;color:#52647d;margin-left:auto;transition:transform .2s;}
+        .member-selection[open]>.member-selection-summary::after {transform:rotate(180deg);}
+        #memberSelectedCount {font-size:1.05rem;color:#475569;white-space:nowrap;}
+        .member-selection-actions {display:flex;justify-content:flex-end;margin:12px 0;}
+        #memberEditor {scroll-margin-top:18px;}
+        .member-editor-focus {animation:memberEditorFocus 2s ease-out;}
+        @keyframes memberEditorFocus {0%{box-shadow:0 0 0 4px #2563eb;}100%{box-shadow:0 0 0 4px transparent;}}
+        @media(max-width:600px) {
+          .member-card .member-list {grid-template-columns:1fr;}
+          .member-card .member-row {grid-template-columns:46px minmax(0,1fr) 79px 98px;}
+          .member-card .member-picker {grid-template-columns:repeat(2,minmax(0,1fr));}
+        }
     </style>
 </head>
 <body>
@@ -822,9 +854,9 @@
     <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
     <details class="card member-card" id="memberCard" open>
         <summary class="member-accordion-summary">👥 参加メンバー</summary>
-        <div class="member-header"><div class="member-top-actions"><button type="button" class="member-small-btn" onclick="document.getElementById('memberEditor').open=!document.getElementById('memberEditor').open">✏️ メンバー編集</button><button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 リセット</button></div></div>
+        <div class="member-header"><div class="member-top-actions"><button type="button" class="member-small-btn" onclick="openMemberEditor()">✏️ メンバー編集</button><button type="button" class="member-small-btn" onclick="prepareNextSession()">🔄 リセット</button></div></div>
         <div class="member-steps"><div class="member-step"><b>1</b>参加者を選択</div><div class="member-step"><b>2</b>番号をランダム決定</div><div class="member-step"><b>3</b>組み合わせ作成</div></div>
-        <div class="member-selection"><div class="member-section-heading"><span>👥 参加するメンバー</span><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div><div id="memberPicker" class="member-picker"></div></div>
+        <details class="member-selection" id="memberSelection" open><summary class="member-selection-summary">👥 参加するメンバー <span id="memberSelectedCount"></span></summary><div class="member-selection-actions"><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div><div id="memberPicker" class="member-picker"></div></details>
         <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button><button type="button" class="member-small-btn" onclick="shuffleMemberNumbers()">🔀 再シャッフル</button></div>
         <div class="member-results"><div class="member-section-heading"><span>📋 本日の番号一覧</span></div><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div></div>
         <button type="button" class="member-bottom-add" onclick="addExtraPlayer()">＋ 途中参加を追加</button>
@@ -1121,15 +1153,28 @@ let isApplyingServerState = false;
             document.getElementById('playerCount').value=Math.max(4,currentMaxPlayers);
             renderMembers();renderSelectors();scheduleStateSave();
         }
+        function openMemberEditor() {
+            const editor=document.getElementById('memberEditor');
+            const card=document.getElementById('memberCard');
+            if(card)card.open=true;
+            if(!editor)return;
+            editor.open=true;
+            requestAnimationFrame(()=>editor.scrollIntoView({behavior:'smooth',block:'start'}));
+            editor.classList.remove('member-editor-focus');
+            void editor.offsetWidth;
+            editor.classList.add('member-editor-focus');
+        }
         function prepareNextSession() {
-            if(!confirm('現在の試合スケジュールを終了して、次回の参加者・番号を設定しますか？'))return;
+            if(!confirm('組み合わせをリセットし、参加メンバーのチェックもすべて外しますか？\n※登録済みの名前は残ります。'))return;
             markInteraction();
             matchesData=[];originalMatchesData=[];baseMatchesData=[];
             completedMatches.clear();courtProgress={};absentPlayers.clear();appliedAbsentPlayers.clear();
             pendingAddedPlayers.clear();newPlayers.clear();playerJoinMatch={};matchTimes={};
             memberNumbers={};myNumber=null;localStorage.removeItem('badminton_my_num');
-            currentMaxPlayers=selectedMemberIds.length;
-            document.getElementById('playerCount').value=Math.max(4,currentMaxPlayers);
+            selectedMemberIds=[];
+            currentMaxPlayers=0;
+            document.getElementById('playerCount').value=4;
+            const selection=document.getElementById('memberSelection');if(selection)selection.open=true;
             renderSelectors();renderMembers();renderMatches(true);saveServerState();
         }
         function shuffleMemberNumbers() {
@@ -1207,8 +1252,10 @@ let isApplyingServerState = false;
             const running=matchesData.length>0;
             picker.innerHTML=roster.map(m=>`<label class="member-pick"><input type="checkbox" ${selectedMemberIds.includes(m.id)?'checked ':''}${running?'disabled ':''}onchange="changeMemberSelection('${m.id}',this.checked)"><span>${memberEsc(m.name)}<small class="member-san">さん</small></span></label>`).join('');
             const rows=selectedMemberIds.map(id=>({id,member:roster.find(m=>m.id===id),num:Number(memberNumbers[id])})).filter(x=>x.member&&x.num>0).sort((a,b)=>a.num-b.num);
-            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action early '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり中':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
+            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action early '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
             editor.innerHTML=roster.map(m=>`<div class="member-editor-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40"><button type="button" class="member-small-btn" onclick="updateRosterName('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button></div>`).join('');
+            const countLabel=document.getElementById('memberSelectedCount');
+            if(countLabel)countLabel.textContent='（'+selectedMemberIds.length+'人選択）';
             const ready=selectedMemberIds.length>=4 && selectedMemberIds.every(id=>Number(memberNumbers[id])>0);
             const status=document.getElementById('memberStatus');
             status.textContent=running?'試合進行中：'+selectedMemberIds.length+'人（番号は固定）':(ready?'番号決定済み：'+selectedMemberIds.length+'人。下の番号一覧に表示しています。':'参加者 '+selectedMemberIds.length+'人：番号を決定してください。');
