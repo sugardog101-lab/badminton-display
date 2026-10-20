@@ -948,6 +948,45 @@
       .member-card .member-picker,.extra-player-panel .member-picker {grid-template-columns:repeat(2,minmax(0,1fr));}
     }
 
+
+    /* 2026-10-20: スマホの過度な拡大を緩和し、管理用の見出しを一体表示 */
+    .member-card > summary.member-accordion-summary,
+    .member-number-card > summary.member-number-summary {
+      gap:0; flex-wrap:nowrap; letter-spacing:0; white-space:nowrap;
+    }
+    .member-card > summary.member-accordion-summary .accordion-role,
+    .member-number-card > summary.member-number-summary .accordion-role {
+      font-size:.8em; margin-left:0; letter-spacing:0; white-space:nowrap;
+    }
+    @media(max-width:800px) {
+      .member-card > summary.member-accordion-summary,
+      .member-number-card > summary.member-number-summary {font-size:2.25rem;min-height:58px;}
+      .member-card .member-selection-summary,
+      .member-card .member-section-heading,
+      .member-card .member-config h2,
+      .member-number-card .member-section-heading {font-size:2.05rem;}
+      .member-card .member-pick,
+      .member-number-card .member-pick {font-size:1.9rem;min-height:65px;padding:12px;line-height:1.35;}
+      .member-card .member-pick input,
+      .member-number-card .member-pick input {width:32px;height:32px;}
+      .member-card .member-help,.member-card .member-status,
+      .member-number-card .member-help,.member-number-card .member-status,
+      .extra-player-panel .member-help {font-size:1.7rem;}
+      .member-card .member-small-btn,.member-card .member-bottom-add,
+      .member-number-card .member-small-btn,.member-number-card .member-bottom-add,
+      .member-card .member-controls .btn,
+      .member-card .member-create-btn,
+      .member-card .mode-btn {font-size:1.7rem;min-height:65px;padding:11px 8px;}
+      .member-primary-actions button {font-size:1.52rem;min-height:74px;padding:8px 4px;}
+      .member-card .member-config-label,.member-card .member-config-court label,
+      .member-card .member-config-court select {font-size:1.8rem;}
+      .member-card .member-editor summary {font-size:1.85rem;}
+      .member-card .member-editor-row input,.member-card .member-new-name {font-size:1.7rem;min-height:56px;}
+      .member-number-card .member-row {grid-template-columns:66px minmax(0,1fr) 115px 139px;gap:7px;padding:10px;min-height:80px;}
+      .member-number-card .member-num {font-size:2.15rem;padding:9px 4px;}
+      .member-number-card .member-name {font-size:1.95rem;line-height:1.35;}
+      .member-number-card .member-action {font-size:1.55rem;min-height:56px;padding:7px 2px;}
+    }
     </style>
 </head>
 <body>
