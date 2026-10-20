@@ -1030,6 +1030,15 @@
         line-height:1.35;
       }
     }
+
+    /* 組み合わせ設定は管理用アコーディオン内で常時表示 */
+    .member-selection-heading{font-size:1.25rem;font-weight:850;color:#17213b;margin:2px 0 10px;}
+    .extra-new-member{margin-top:14px;padding:12px;background:#fff;border:1px solid #d6e4fa;border-radius:12px;}
+    .extra-new-member label{display:block;font-weight:800;margin-bottom:8px;color:#24364f;}
+    .extra-new-member-input{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;}
+    .extra-new-member-input input{flex:1 1 180px;min-width:0;border:1px solid #94a3b8;border-radius:8px;padding:10px 12px;font-size:1.15rem;}
+    .extra-new-member-input button{flex:0 0 auto;}
+    @media(max-width:800px){.member-selection-heading{font-size:1.8rem}.extra-new-member label{font-size:1.55rem}.extra-new-member-input input{font-size:1.6rem;min-height:56px}.extra-new-member-input button{font-size:1.5rem;}}
     </style>
 </head>
 <body>
@@ -1048,8 +1057,8 @@
             <button type="button" class="member-small-btn member-settings-btn" onclick="toggleMemberSettings()">② 👥 組み合わせ設定</button>
             <button type="button" class="btn member-create-btn" onclick="createNewSchedule()">③ 🏸 組み合わせ作成</button>
         </div>
-        <details class="member-selection" id="memberSelection">
-            <summary class="member-selection-summary">👥 組み合わせ設定 <span id="memberSelectedCount"></span></summary>
+        <div class="member-selection" id="memberSelection">
+            <div class="member-selection-heading">👥 組み合わせ設定 <span id="memberSelectedCount"></span></div>
             <div class="member-selection-actions"><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div>
             <div id="memberPicker" class="member-picker"></div>
             <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div></details>
@@ -1070,7 +1079,7 @@
                 </div>
             </div>
 
-        </div>        </details>
+        </div>        </div>
     </details>
     <select id="playerCount" hidden aria-hidden="true"></select>
     <details class="card member-number-card" id="memberNumberCard">
@@ -1080,7 +1089,7 @@
         <div id="extraPlayerPanel" class="extra-player-panel" hidden>
           <div class="member-help">追加する方にチェックを入れてください（複数選択可）。</div>
           <div id="extraPlayerChoices" class="member-picker"></div>
-          <div class="extra-player-actions"><button type="button" class="member-small-btn" onclick="addExtraGuestChoice()">＋ ゲストを名簿に追加</button><button type="button" class="member-small-btn member-settings-btn" onclick="confirmExtraPlayers()">選択した人を追加</button><button type="button" class="member-small-btn" onclick="closeExtraPlayerPicker()">キャンセル</button></div>
+          <div class="extra-new-member"><label for="extraNewMemberName">新しく参加する人の名前</label><div class="extra-new-member-input"><input type="text" id="extraNewMemberName" maxlength="40" placeholder="名前を入力（例：田中）"><button type="button" class="member-small-btn" onclick="addExtraGuestChoice()">＋ 新規追加</button></div></div><div class="extra-player-actions"><button type="button" class="member-small-btn member-settings-btn" onclick="confirmExtraPlayers()">選択した人を追加</button><button type="button" class="member-small-btn" onclick="closeExtraPlayerPicker()">キャンセル</button></div>
         </div></div>
     </details>
 
@@ -1377,12 +1386,12 @@ let isApplyingServerState = false;
         }
         function toggleMemberSettings() {
             const el=document.getElementById('memberSelection');
-            if(el){el.open=!el.open;if(el.open)requestAnimationFrame(()=>el.scrollIntoView({behavior:'smooth',block:'start'}));}
+            if(el){const card=document.getElementById('memberCard');if(card)card.open=true;requestAnimationFrame(()=>el.scrollIntoView({behavior:'smooth',block:'start'}));}
         }
         function openMemberEditor() {
             const editor=document.getElementById('memberEditor');
             const settings=document.getElementById('memberSelection');
-            if(settings)settings.open=true;
+
             const card=document.getElementById('memberCard');
             if(card)card.open=true;
             if(!editor)return;
@@ -1402,7 +1411,7 @@ let isApplyingServerState = false;
             selectedMemberIds=[];
             currentMaxPlayers=0;
             document.getElementById('playerCount').value=4;
-            const selection=document.getElementById('memberSelection');if(selection)selection.open=true;
+
             renderSelectors();renderMembers();renderMatches(true);saveServerState();
         }
         function shuffleMemberNumbers() {
@@ -1516,16 +1525,20 @@ let isApplyingServerState = false;
                 const ag=/^ゲスト[0-9０-９]*$/.test(a.name),bg=/^ゲスト[0-9０-９]*$/.test(b.name);
                 return ag!==bg?(ag?1:-1):a.name.localeCompare(b.name,'ja',{numeric:true,sensitivity:'base'});
             });
-            container.innerHTML=available.length?available.map(m=>'<label class="member-pick"><input type="checkbox" value="'+memberEsc(m.id)+'" '+(checked.has(m.id)?'checked':'')+'><span>'+memberEsc(m.name)+'<small class="member-san">さん</small></span></label>').join(''):'<div class="member-help">追加できる登録メンバーがいません。ゲストを追加してください。</div>';
+            container.innerHTML=available.length?available.map(m=>'<label class="member-pick"><input type="checkbox" value="'+memberEsc(m.id)+'" '+(checked.has(m.id)?'checked':'')+'><span>'+memberEsc(m.name)+'<small class="member-san">さん</small></span></label>').join(''):'<div class="member-help">追加できる登録メンバーがいません。下の入力欄から新規追加してください。</div>';
         }
         function addExtraGuestChoice() {
             if(currentMaxPlayers>=30)return;
-            const name=nextGuestName();
+            const nameInput=document.getElementById('extraNewMemberName');
+            const name=(nameInput?.value||'').trim().replace(/さん$/,'').trim();
+            if(!name){alert('追加する方の名前を入力してください。');nameInput?.focus();return;}
+            if(roster.some(m=>m.name===name)){alert('同じ名前が登録されています。名簿から選択してください。');return;}
             const member={id:memberId(),name};
             roster.push(member);
             markInteraction();renderMembers();renderExtraPlayerChoices();
-            const input=[...document.querySelectorAll('#extraPlayerChoices input')].find(x=>x.value===member.id);
-            if(input)input.checked=true;
+            const checkbox=[...document.querySelectorAll('#extraPlayerChoices input')].find(x=>x.value===member.id);
+            if(checkbox)checkbox.checked=true;
+            if(nameInput)nameInput.value='';
             scheduleStateSave();
         }
         function confirmExtraPlayers() {
