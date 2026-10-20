@@ -1039,6 +1039,10 @@
     .extra-new-member-input input{flex:1 1 180px;min-width:0;border:1px solid #94a3b8;border-radius:8px;padding:10px 12px;font-size:1.15rem;}
     .extra-new-member-input button{flex:0 0 auto;}
     @media(max-width:800px){.member-selection-heading{font-size:1.8rem}.extra-new-member label{font-size:1.55rem}.extra-new-member-input input{font-size:1.6rem;min-height:56px}.extra-new-member-input button{font-size:1.5rem;}}
+    /* 管理用の上部操作は2ボタン。組み合わせ作成はモード設定の直下。 */
+    .member-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .member-config .member-create-btn{width:100%;margin:16px 0 0;}
+    @media(max-width:800px){.member-primary-actions{grid-template-columns:repeat(2,minmax(0,1fr));}}
     </style>
 </head>
 <body>
@@ -1054,12 +1058,10 @@
         <summary class="member-accordion-summary">👥 参加メンバー<small class="accordion-role">（管理用）</small></summary>
         <div class="member-primary-actions">
             <button type="button" class="member-small-btn member-reset-btn" onclick="prepareNextSession()">① 🔄 リセット</button>
-            <button type="button" class="member-small-btn member-settings-btn" onclick="toggleMemberSettings()">② 👥 組み合わせ設定</button>
-            <button type="button" class="btn member-create-btn" onclick="createNewSchedule()">③ 🏸 組み合わせ作成</button>
+            <button type="button" class="member-small-btn member-settings-btn" onclick="toggleMemberSettings()">② 👥 参加者設定</button>
         </div>
         <div class="member-selection" id="memberSelection">
             <div class="member-selection-heading">👥 組み合わせ設定 <span id="memberSelectedCount"></span></div>
-            <div class="member-selection-actions"><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div>
             <div id="memberPicker" class="member-picker"></div>
             <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div></details>
             <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button></div>
@@ -1078,7 +1080,7 @@
                     </div>
                 </div>
             </div>
-
+            <button type="button" class="btn member-create-btn" onclick="createNewSchedule()">🏸 今日の組み合わせ作成</button>
         </div>        </div>
     </details>
     <select id="playerCount" hidden aria-hidden="true"></select>
