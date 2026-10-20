@@ -893,6 +893,16 @@
       .member-number-card .member-name{font-size:1.28rem;}
       .member-number-card .member-action{font-size:1.1rem;}
     }
+    .member-number-card > .member-number-summary {cursor:pointer;list-style:none;font-size:1.4rem;font-weight:900;padding:5px 0;}
+    .member-number-card > .member-number-summary::-webkit-details-marker{display:none;}
+    .member-number-card > .member-number-summary::after{content:'⌄';float:right;color:#64748b;}
+    .member-number-card[open] > .member-number-summary::after{content:'⌃';}
+    .member-number-card .member-results{padding-top:10px;}
+    .extra-player-panel[hidden]{display:none!important;}
+    .extra-player-panel{border:2px solid #d6e4fa;border-radius:12px;padding:14px;margin-top:12px;background:#f8fbff;}
+    .extra-player-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+    .extra-player-actions button{flex:1 1 145px;min-height:48px;}
+    @media(max-width:600px){.member-number-card > .member-number-summary{font-size:1.6rem}.extra-player-panel .member-pick{font-size:1.25rem;}}
     </style>
 </head>
 <body>
@@ -936,10 +946,16 @@
         </div>        </details>
     </details>
     <select id="playerCount" hidden aria-hidden="true"></select>
-    <section class="card member-number-card" aria-label="本日の番号一覧">
-        <div class="member-results"><div class="member-section-heading"><span>📋 本日の番号一覧</span></div><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div>
-        <button type="button" class="member-bottom-add" onclick="addExtraPlayer()">＋ 途中参加を追加</button></div>
-    </section>
+    <details class="card member-number-card" id="memberNumberCard" open>
+        <summary class="member-number-summary">📋 本日の番号一覧</summary>
+        <div class="member-results"><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div>
+        <button type="button" class="member-bottom-add" onclick="toggleExtraPlayerPicker()">＋ 途中参加を追加</button>
+        <div id="extraPlayerPanel" class="extra-player-panel" hidden>
+          <div class="member-help">追加する方にチェックを入れてください（複数選択可）。</div>
+          <div id="extraPlayerChoices" class="member-picker"></div>
+          <div class="extra-player-actions"><button type="button" class="member-small-btn" onclick="addExtraGuestChoice()">＋ ゲストを名簿に追加</button><button type="button" class="member-small-btn member-settings-btn" onclick="confirmExtraPlayers()">選択した人を追加</button><button type="button" class="member-small-btn" onclick="closeExtraPlayerPicker()">キャンセル</button></div>
+        </div></div>
+    </details>
 
 
     <!-- 3. 試合スケジュール -->
@@ -1055,7 +1071,7 @@ let isApplyingServerState = false;
             // InfinityFreeのHits制限対策：サーバー確認は10秒間隔。
  setInterval(() => {
     // 読み込み・保存中は重複通信を発生させない
-    if (!loadInFlight) {
+    if (!loadInFlight && document.visibilityState === 'visible') {
         loadServerState(false);
     }
 }, 2000);
@@ -1354,22 +1370,52 @@ let isApplyingServerState = false;
             document.getElementById('shuffleMembersBtn').disabled=running;
             document.getElementById('shuffleMembersBtn').classList.toggle('member-disabled',running);
         }
-        function addExtraPlayer() {
-            if (!matchesData.length) {alert('試合開始前は参加メンバーにチェックを入れてから番号を決定してください。');return;}
+        function closeExtraPlayerPicker() {
+            const panel=document.getElementById('extraPlayerPanel');
+            if(panel)panel.hidden=true;
+        }
+        function toggleExtraPlayerPicker() {
+            if (!matchesData.length) {alert('試合開始後に利用できます。');return;}
             if (currentMaxPlayers>=30) {alert('最大30人です。');return;}
-            const available=roster.filter(m=>!selectedMemberIds.includes(m.id));
-            const guide=available.map((m,i)=>(i+1)+': '+m.name+'さん').join('\n');
-            const answer=prompt('途中参加する人を選んでください。\n'+guide+'\n\n番号を入力、または新しい名前を入力してください。',available.length?'1':nextGuestName());
-            if(answer===null)return;
-            let member=null;
-            const n=Number(answer.trim());
-            if(Number.isInteger(n)&&n>=1&&n<=available.length) member=available[n-1];
-            else {
-                const name=answer.trim().replace(/さん$/,'').trim()||nextGuestName();
-                member=available.find(m=>m.name===name);
-                if(!member) {member={id:memberId(),name};roster.push(member);}
-            }
-            if(!confirm(member.name+'さんを'+(currentMaxPlayers+1)+'番で途中参加させますか？'))return;
+            const panel=document.getElementById('extraPlayerPanel');
+            panel.hidden=!panel.hidden;
+            if(!panel.hidden){renderExtraPlayerChoices();requestAnimationFrame(()=>panel.scrollIntoView({behavior:'smooth',block:'nearest'}));}
+        }
+        function renderExtraPlayerChoices() {
+            const container=document.getElementById('extraPlayerChoices');
+            if(!container)return;
+            const checked=new Set([...container.querySelectorAll('input:checked')].map(x=>x.value));
+            const available=roster.filter(m=>!selectedMemberIds.includes(m.id)).sort((a,b)=>{
+                const ag=/^ゲスト[0-9０-９]*$/.test(a.name),bg=/^ゲスト[0-9０-９]*$/.test(b.name);
+                return ag!==bg?(ag?1:-1):a.name.localeCompare(b.name,'ja',{numeric:true,sensitivity:'base'});
+            });
+            container.innerHTML=available.length?available.map(m=>'<label class="member-pick"><input type="checkbox" value="'+memberEsc(m.id)+'" '+(checked.has(m.id)?'checked':'')+'><span>'+memberEsc(m.name)+'<small class="member-san">さん</small></span></label>').join(''):'<div class="member-help">追加できる登録メンバーがいません。ゲストを追加してください。</div>';
+        }
+        function addExtraGuestChoice() {
+            if(currentMaxPlayers>=30)return;
+            const name=nextGuestName();
+            const member={id:memberId(),name};
+            roster.push(member);
+            markInteraction();renderMembers();renderExtraPlayerChoices();
+            const input=[...document.querySelectorAll('#extraPlayerChoices input')].find(x=>x.value===member.id);
+            if(input)input.checked=true;
+            scheduleStateSave();
+        }
+        function confirmExtraPlayers() {
+            if(!matchesData.length)return;
+            const ids=[...document.querySelectorAll('#extraPlayerChoices input:checked')].map(x=>x.value).filter(id=>roster.some(m=>m.id===id)&&!selectedMemberIds.includes(id));
+            if(!ids.length){alert('追加する人にチェックを入れてください。');return;}
+            if(currentMaxPlayers+ids.length>30){alert('参加者は最大30人です。');return;}
+            const names=ids.map(id=>roster.find(m=>m.id===id).name+'さん').join('、');
+            if(!confirm(names+'を途中参加に追加しますか？'))return;
+            // 既存の組み合わせ生成ロジックをそのまま使用し、人数だけ順に追加する。
+            ids.forEach(id=>addExtraPlayerById(id,false));
+            closeExtraPlayerPicker();
+            renderSelectors();renderMembers();renderMatches(true);saveServerState();
+        }
+        function addExtraPlayerById(id, persist=true) {
+            const member=roster.find(m=>m.id===id);
+            if(!member||selectedMemberIds.includes(id)||currentMaxPlayers>=30)return;
             selectedMemberIds.push(member.id);
             memberNumbers[member.id]=currentMaxPlayers+1;
             markInteraction();
@@ -1391,7 +1437,7 @@ let isApplyingServerState = false;
                 baseMatchesData=JSON.parse(JSON.stringify(matchesData));
                 pendingAddedPlayers.clear();
             }
-            renderSelectors();renderMembers();renderMatches(true);saveServerState();
+            if(persist){renderSelectors();renderMembers();renderMatches(true);saveServerState();}
         }
 
         function renderSelectors() {
@@ -2183,13 +2229,17 @@ function saveServerState() {
     const baseRevision = Number(serverRevision) || 0;
     saveInFlight = true;
 
+    const saveController = new AbortController();
+    const saveTimeout = setTimeout(() => saveController.abort(), 10000);
     fetch('/api?action=save', {
         method: 'POST',
+        signal: saveController.signal,
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         body: JSON.stringify({ json: jsonStr, revision: baseRevision })
     })
     .then(async response => {
+        clearTimeout(saveTimeout);
         let result = null;
         try { result = await response.json(); } catch (_) {}
         return { ok: response.ok, status: response.status, result };
@@ -2236,6 +2286,7 @@ function saveServerState() {
         }, 1500);
     })
     .catch(() => {
+        clearTimeout(saveTimeout);
         saveInFlight = false;
         setServerSaveStatus('error');
         saveQueued = true;
@@ -2249,7 +2300,7 @@ function saveServerState() {
 }
 
 async function loadServerState(isInitial = false, force = false) {
-    if (loadInFlight && !force) return;
+    if (loadInFlight) return;
 
     // 未保存のローカル操作を、GETで上書きしない。
     // forceはrevision判定を飛ばすためのものだが、通常の画面復帰では保存中なら待つ。
@@ -2260,10 +2311,14 @@ async function loadServerState(isInitial = false, force = false) {
 
     try {
         const url = '/api?action=get&_=' + Date.now();
-        const response = await fetch(url, {
+        const getController = new AbortController();
+        const getTimeout = setTimeout(() => getController.abort(), 10000);
+        let response;
+        try { response = await fetch(url, {
+            signal: getController.signal,
             cache: 'no-store',
             headers: { 'Cache-Control': 'no-cache' }
-        });
+        }); } finally { clearTimeout(getTimeout); }
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const jsonStr = await response.text();
@@ -2402,10 +2457,10 @@ async function loadServerState(isInitial = false, force = false) {
 
 // 画面復帰時は2秒ポーリングを待たず即同期する。
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') loadServerState(false, true);
+    if (document.visibilityState === 'visible') loadServerState(false);
 });
-window.addEventListener('pageshow', () => loadServerState(false, true));
-window.addEventListener('focus', () => loadServerState(false, true));
+window.addEventListener('pageshow', () => loadServerState(false));
+window.addEventListener('focus', () => loadServerState(false));
 
 </script>
     </div>
