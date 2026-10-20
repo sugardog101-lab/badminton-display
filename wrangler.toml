@@ -6,6 +6,15 @@ compatibility_date = "2026-09-17"
 directory = "./"
 binding = "ASSETS"
 
+# 既存のKVは初回移行・バックアップのため残す
 [[kv_namespaces]]
 binding = "BADMINTON_STATE"
 id = "2d3475edfd16404ca757e2a9ab0d706c"
+
+[[durable_objects.bindings]]
+name = "BADMINTON_ROOM"
+class_name = "BadmintonRoom"
+
+[[migrations]]
+tag = "v1-badminton-room"
+new_sqlite_classes = ["BadmintonRoom"]
