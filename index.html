@@ -903,6 +903,51 @@
     .extra-player-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
     .extra-player-actions button{flex:1 1 145px;min-height:48px;}
     @media(max-width:600px){.member-number-card > .member-number-summary{font-size:1.6rem}.extra-player-panel .member-pick{font-size:1.25rem;}}
+
+    /* 見出し統一と高齢者向け可読性改善（PC版800pxをzoom縮小する設計に対応） */
+    .member-card > summary.member-accordion-summary,
+    .member-number-card > summary.member-number-summary {
+        font-size:1.8rem; font-weight:900; line-height:1.5; padding:10px 4px;
+        display:flex; align-items:center; flex-wrap:wrap; gap:3px;
+    }
+    .accordion-role {font-size:1em; font-weight:900; color:inherit;}
+    .member-number-card > summary.member-number-summary::after {margin-left:auto;float:none;}
+    .member-controls {grid-template-columns:minmax(0,1fr);}
+    .member-number-card .member-action {min-height:46px;padding:10px 6px;}
+    @media(max-width:800px) {
+      /* 見かけの文字サイズは zoom 約0.4～0.9 倍になるため、縮小前を拡大 */
+      .member-card > summary.member-accordion-summary,
+      .member-number-card > summary.member-number-summary {font-size:2.9rem;min-height:66px;}
+      .member-card .member-selection-summary,
+      .member-card .member-section-heading,
+      .member-card .member-config h2,
+      .member-number-card .member-section-heading {font-size:2.6rem;line-height:1.4;}
+      .member-card .member-pick,
+      .member-number-card .member-pick {font-size:2.4rem;min-height:74px;padding:15px;line-height:1.35;}
+      .member-card .member-pick input,
+      .member-number-card .member-pick input {width:38px;height:38px;}
+      .member-card .member-help,.member-card .member-status,
+      .member-number-card .member-help,.member-number-card .member-status,
+      .extra-player-panel .member-help {font-size:2.1rem;line-height:1.5;}
+      .member-card .member-small-btn,.member-card .member-bottom-add,
+      .member-number-card .member-small-btn,.member-number-card .member-bottom-add,
+      .member-card .member-controls .btn,
+      .member-card .member-create-btn,
+      .member-card .mode-btn {font-size:2.1rem;min-height:76px;padding:14px 10px;line-height:1.3;}
+      .member-primary-actions button {font-size:1.95rem;min-height:90px;}
+      .member-card .member-config-label,.member-card .member-config-court label,
+      .member-card .member-config-court select {font-size:2.2rem;}
+      .member-card .member-editor summary {font-size:2.35rem;}
+      .member-card .member-editor-row input,.member-card .member-new-name {font-size:2.1rem;min-height:66px;}
+      .member-number-card .member-list {grid-template-columns:1fr;}
+      .member-number-card .member-row {grid-template-columns:80px minmax(0,1fr) 132px 160px;gap:10px;padding:12px;min-height:94px;}
+      .member-number-card .member-num {font-size:2.65rem;padding:12px 4px;}
+      .member-number-card .member-name {font-size:2.35rem;line-height:1.4;}
+      .member-number-card .member-action {font-size:1.95rem;min-height:66px;padding:8px 3px;}
+      .member-san {font-size:.72em;}
+      .member-card .member-picker,.extra-player-panel .member-picker {grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+
     </style>
 </head>
 <body>
@@ -915,7 +960,7 @@
 
     <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
     <details class="card member-card" id="memberCard" open>
-        <summary class="member-accordion-summary">👥 参加メンバー</summary>
+        <summary class="member-accordion-summary">👥 参加メンバー <small class="accordion-role">（管理用）</small></summary>
         <div class="member-primary-actions">
             <button type="button" class="member-small-btn member-reset-btn" onclick="prepareNextSession()">① 🔄 リセット</button>
             <button type="button" class="member-small-btn member-settings-btn" onclick="toggleMemberSettings()">② 👥 組み合わせ設定</button>
@@ -926,7 +971,7 @@
             <div class="member-selection-actions"><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div>
             <div id="memberPicker" class="member-picker"></div>
             <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div></details>
-            <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button><button type="button" class="member-small-btn" onclick="shuffleMemberNumbers()">🔀 再シャッフル</button></div>
+            <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button></div>
         <div class="member-config">
             <h2>⚙️ コート設定・試合モード</h2>
             <div class="member-config-grid">
@@ -947,7 +992,7 @@
     </details>
     <select id="playerCount" hidden aria-hidden="true"></select>
     <details class="card member-number-card" id="memberNumberCard" open>
-        <summary class="member-number-summary">📋 本日の番号一覧</summary>
+        <summary class="member-number-summary">📋 本日の番号一覧 <small class="accordion-role">（参加者用）</small></summary>
         <div class="member-results"><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div>
         <button type="button" class="member-bottom-add" onclick="toggleExtraPlayerPicker()">＋ 途中参加を追加</button>
         <div id="extraPlayerPanel" class="extra-player-panel" hidden>
@@ -1068,7 +1113,7 @@ let isApplyingServerState = false;
 
             loadServerState(true);
 
-            // InfinityFreeのHits制限対策：サーバー確認は10秒間隔。
+            // 表示中は約2秒ごとにサーバーの更新を確認する。
  setInterval(() => {
     // 読み込み・保存中は重複通信を発生させない
     if (!loadInFlight && document.visibilityState === 'visible') {
@@ -2461,6 +2506,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pageshow', () => loadServerState(false));
 window.addEventListener('focus', () => loadServerState(false));
+window.addEventListener('online', () => loadServerState(false));
 
 </script>
     </div>
