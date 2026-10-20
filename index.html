@@ -987,6 +987,49 @@
       .member-number-card .member-name {font-size:1.95rem;line-height:1.35;}
       .member-number-card .member-action {font-size:1.55rem;min-height:56px;padding:7px 2px;}
     }
+
+    /* 2026-10-20: アコーディオン初期状態・見出し・参加者用カード調整 */
+    details.member-card > summary.member-accordion-summary,
+    details.member-number-card > summary.member-number-summary {
+      justify-content:flex-start;
+      gap:0;
+      letter-spacing:normal;
+      font-size:2rem;
+      font-weight:900;
+      flex-wrap:nowrap;
+    }
+    details.member-card > summary.member-accordion-summary .accordion-role,
+    details.member-number-card > summary.member-number-summary .accordion-role {
+      font-size:.78em;
+      margin-left:0;
+      font-weight:800;
+      flex-shrink:0;
+    }
+    details.member-card > summary.member-accordion-summary::after,
+    details.member-number-card > summary.member-number-summary::after {
+      margin-left:auto;
+      flex-shrink:0;
+    }
+    details.member-number-card {
+      background:#fffbea;
+      border-color:#e5b94f;
+      box-shadow:0 5px 12px rgba(120,87,10,.12);
+    }
+    details.member-number-card > summary.member-number-summary {
+      color:#644609;
+    }
+    details.member-number-card[open] > .member-results {
+      background:#fffdf4;
+      border-radius:12px;
+      padding:12px;
+    }
+    @media(max-width:800px) {
+      details.member-card > summary.member-accordion-summary,
+      details.member-number-card > summary.member-number-summary {
+        font-size:2.55rem;
+        line-height:1.35;
+      }
+    }
     </style>
 </head>
 <body>
@@ -998,14 +1041,14 @@
     <div id="serverSaveStatus" class="server-save-status" data-state="checking" role="status" aria-live="polite">● サーバー確認中…</div>
 
     <!-- 2. 参加メンバー：番号決定→全員確認→組み合わせ作成 -->
-    <details class="card member-card" id="memberCard" open>
-        <summary class="member-accordion-summary">👥 参加メンバー <small class="accordion-role">（管理用）</small></summary>
+    <details class="card member-card" id="memberCard">
+        <summary class="member-accordion-summary">👥 参加メンバー<small class="accordion-role">（管理用）</small></summary>
         <div class="member-primary-actions">
             <button type="button" class="member-small-btn member-reset-btn" onclick="prepareNextSession()">① 🔄 リセット</button>
             <button type="button" class="member-small-btn member-settings-btn" onclick="toggleMemberSettings()">② 👥 組み合わせ設定</button>
             <button type="button" class="btn member-create-btn" onclick="createNewSchedule()">③ 🏸 組み合わせ作成</button>
         </div>
-        <details class="member-selection" id="memberSelection" open>
+        <details class="member-selection" id="memberSelection">
             <summary class="member-selection-summary">👥 組み合わせ設定 <span id="memberSelectedCount"></span></summary>
             <div class="member-selection-actions"><button type="button" class="member-small-btn" onclick="addGuestMember()">＋ ゲストを追加</button></div>
             <div id="memberPicker" class="member-picker"></div>
@@ -1030,8 +1073,8 @@
         </div>        </details>
     </details>
     <select id="playerCount" hidden aria-hidden="true"></select>
-    <details class="card member-number-card" id="memberNumberCard" open>
-        <summary class="member-number-summary">📋 本日の番号一覧 <small class="accordion-role">（参加者用）</small></summary>
+    <details class="card member-number-card" id="memberNumberCard">
+        <summary class="member-number-summary">📋 本日の番号一覧<small class="accordion-role">（参加者用）</small></summary>
         <div class="member-results"><div class="member-help">番号を決定すると、ここに番号と名前が表示されます。各自「☆ 自分」を設定できます。</div><div class="member-status" id="memberStatus">参加者を選択してください</div><div id="memberNumberList" class="member-list"></div>
         <button type="button" class="member-bottom-add" onclick="toggleExtraPlayerPicker()">＋ 途中参加を追加</button>
         <div id="extraPlayerPanel" class="extra-player-panel" hidden>
