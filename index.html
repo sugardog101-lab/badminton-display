@@ -1206,13 +1206,11 @@ let isApplyingServerState = false;
 
             loadServerState(true);
 
-            // 表示中は約2秒ごとにサーバーの更新を確認する。
- setInterval(() => {
-    // 読み込み・保存中は重複通信を発生させない
-    if (!loadInFlight && document.visibilityState === 'visible') {
-        loadServerState(false);
-    }
-}, 2000);
+            // WebSocketで変更通知を受ける。通信切断に備え30秒ごとにも照合する。
+            connectBadmintonSocket();
+            setInterval(() => {
+                if (!loadInFlight && document.visibilityState === 'visible') loadServerState(false);
+            }, 30000);
         });
 
         function markInteraction() {
@@ -2335,6 +2333,44 @@ function setProgressMode(mode, persist = true) {
 
 
 
+// WebSocketは「変更があった」という通知専用。データ本体は従来のGETで取得する。
+let badmintonSocket = null;
+let badmintonReconnectTimer = null;
+let badmintonReconnectDelay = 1000;
+let badmintonNotifiedRevision = 0;
+function connectBadmintonSocket() {
+    if (badmintonSocket && (badmintonSocket.readyState === WebSocket.OPEN || badmintonSocket.readyState === WebSocket.CONNECTING)) return;
+    if (badmintonReconnectTimer) { clearTimeout(badmintonReconnectTimer); badmintonReconnectTimer = null; }
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(protocol + '//' + location.host + '/api/ws');
+    badmintonSocket = ws;
+    ws.onopen = () => {
+        badmintonReconnectDelay = 1000;
+        // 再接続中の更新を取りこぼさない
+        loadServerState(false);
+    };
+    ws.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'updated' && Number(message.revision) > Number(serverRevision)) {
+                badmintonNotifiedRevision = Math.max(badmintonNotifiedRevision, Number(message.revision));
+                loadServerState(false);
+            }
+        } catch (_) {}
+    };
+    ws.onclose = ws.onerror = () => {
+        if (badmintonSocket !== ws) return;
+        badmintonSocket = null;
+        if (badmintonReconnectTimer) return;
+        const wait = badmintonReconnectDelay;
+        badmintonReconnectDelay = Math.min(badmintonReconnectDelay * 2, 30000);
+        badmintonReconnectTimer = setTimeout(() => {
+            badmintonReconnectTimer = null;
+            if (navigator.onLine !== false) connectBadmintonSocket();
+        }, wait);
+    };
+}
+
 function saveServerState() {
     if (!initialLoadCompleted || isApplyingServerState) return;
 
@@ -2400,6 +2436,9 @@ function saveServerState() {
             if (saveQueued) {
                 saveQueued = false;
                 setTimeout(() => saveServerState(), 0);
+            } else {
+                // 保存中に届いた他端末の通知を回収する
+                setTimeout(() => loadServerState(false), 0);
             }
             return;
         }
@@ -2449,6 +2488,7 @@ async function loadServerState(isInitial = false, force = false) {
     if (!isInitial && (saveInFlight || saveQueued || saveTimer || isInteracting) && !conflictRetrying) return;
 
     loadInFlight = true;
+    let loadedSuccessfully = false;
     if (isInitial) showLoading(true);
 
     try {
@@ -2481,6 +2521,7 @@ async function loadServerState(isInitial = false, force = false) {
         }
 
         const remoteRevision = Number(record.revision) || 0;
+        loadedSuccessfully = true;
         const localRevision = Number(serverRevision) || 0;
 
         // 初回以外は、古いKV読み出しで画面を巻き戻さない。
@@ -2594,6 +2635,10 @@ async function loadServerState(isInitial = false, force = false) {
     } finally {
         loadInFlight = false;
         if (isInitial) showLoading(false);
+        if (loadedSuccessfully && badmintonNotifiedRevision > serverRevision && !saveInFlight && !saveQueued && !saveTimer && !isInteracting) {
+            // 読み込み中に届いた通知を取りこぼさない
+            setTimeout(() => loadServerState(false), 0);
+        }
     }
 }
 
@@ -2603,7 +2648,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pageshow', () => loadServerState(false));
 window.addEventListener('focus', () => loadServerState(false));
-window.addEventListener('online', () => loadServerState(false));
+window.addEventListener('online', () => { connectBadmintonSocket(); loadServerState(false); });
 
 </script>
     </div>
