@@ -1070,7 +1070,7 @@
             <div class="member-config-grid">
                 <div class="member-config-court">
                     <label for="courtCount">コート数</label>
-                    <select id="courtCount"><option value="1">1面</option><option value="2" selected>2面</option><option value="3">3面</option></select>
+                    <select id="courtCount"><option value="1">1面</option><option value="2" selected>2面</option></select>
                 </div>
                 <div class="member-config-mode">
                     <div class="member-config-label">試合モード</div>
@@ -1286,8 +1286,19 @@ let isApplyingServerState = false;
             });
         }
 
+        // 参加人数から使用面数を決定。開始時の選択は1面/2面のみ、上限は常に2面。
+        function activeCourtCount(activeCount) {
+            return activeCount >= 8 ? 2 : (activeCount >= 4 ? 1 : 0);
+        }
+        function currentActiveCount() {
+            let count = 0;
+            for (let i = 1; i <= currentMaxPlayers; i++) if (!absentPlayers.has(i)) count++;
+            return count;
+        }
+
         function generateFairFutureFromLocked(startNum, locked, active, guaranteedFirstPlayers = new Set()) {
-            const courtCount = parseInt(document.getElementById('courtCount').value);
+            const courtCount = activeCourtCount(active.length);
+            if (!courtCount) return [];
             const slots = courtCount * 4;
             const pc = {}, lp = {}, streak = {}, ph = {};
 
@@ -1807,10 +1818,11 @@ function setProgressMode(mode, persist = true) {
                 if (!absentPlayers.has(i)) active.push(i);
             }
 
-            if (active.length < courtCount * 4) {
-                alert(`コート数が${courtCount}面の場合、早上がりを除いて最低${courtCount * 4}人必要です。`);
+            if (active.length < 4) {
+                alert('試合を組むには、早上がりを除いて最低4人必要です。');
                 return;
             }
+            document.getElementById('courtCount').value = String(activeCourtCount(active.length));
 
             const out = generateFairFutureFromLocked(1, [], active, new Set());
             originalMatchesData = JSON.parse(JSON.stringify(out));
@@ -1874,7 +1886,7 @@ function setProgressMode(mode, persist = true) {
             if (!matchesData || matchesData.length === 0) return 1;
             if (document.body.dataset.progressMode === 'court') {
                 const vals = [];
-                const courtCount = parseInt(document.getElementById('courtCount').value);
+                const courtCount = Math.max(1, ...matchesData.flatMap(m => [(m.courts || []).length]));
                 for (let c = 1; c <= courtCount; c++) vals.push(courtProgress[c] || 1);
                 return Math.min.apply(null, vals);
             }
@@ -1897,7 +1909,7 @@ function setProgressMode(mode, persist = true) {
             if (!courtMode) {
                 const locked = matchesData.filter(m => m.matchNum < matchStartNum);
 
-                if (absentPlayers.size === 0 && pendingAddedPlayers.size === 0) {
+                if (absentPlayers.size === 0 && pendingAddedPlayers.size === 0 && baseline.every(m => (m.courts || []).length === activeCourtCount(currentActiveCount()))) {
                     const future = baseline.filter(m => m.matchNum >= matchStartNum);
                     matchesData = JSON.parse(JSON.stringify([...locked, ...future]));
                     return;
@@ -1917,7 +1929,7 @@ function setProgressMode(mode, persist = true) {
 
                 // 早上がり・途中参加が同時に発生しても、同じ公平ロジックで未来を再生成する。
                 // 既に終了した試合は locked として固定し、そこから出場回数・連続出場を復元する。
-                if (absentPlayers.size > 0) {
+                if (absentPlayers.size > 0 || baseline.some(m => (m.courts || []).length !== activeCourtCount(currentActiveCount()))) {
                     const active = [];
                     for (let i = 1; i <= currentMaxPlayers; i++) {
                         if (!absentPlayers.has(i)) active.push(i);
@@ -2258,7 +2270,7 @@ function setProgressMode(mode, persist = true) {
 
         function renderCourtProgressMode(listEl, autoScroll = false) {
             listEl.innerHTML = '';
-            const courtCount = parseInt(document.getElementById('courtCount').value);
+            const courtCount = Math.max(1, ...matchesData.flatMap(m => [(m.courts || []).length]));
             for (let c = 1; c <= courtCount; c++) if (!courtProgress[c]) courtProgress[c] = 1;
 
             const currentNums = [];
@@ -2565,7 +2577,7 @@ async function loadServerState(isInitial = false, force = false) {
             if (playerSelect) playerSelect.value = state.playerCount || 4;
 
             const courtSelect = document.getElementById('courtCount');
-            if (courtSelect) courtSelect.value = state.courtCount || 2;
+            if (courtSelect) courtSelect.value = String(Math.min(2, Math.max(1, Number(state.courtCount) || 2)));
 
             roster=Array.isArray(state.roster)?state.roster.filter(m=>m&&typeof m.id==='string'&&typeof m.name==='string'):[];
             selectedMemberIds=Array.isArray(state.selectedMemberIds)?state.selectedMemberIds:[];
