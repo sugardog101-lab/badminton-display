@@ -1043,6 +1043,27 @@
     .member-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
     .member-config .member-create-btn{width:100%;margin:16px 0 0;}
     @media(max-width:800px){.member-primary-actions{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+    /* 参加者プロフィールとコート名表示 */
+    .member-pick.gender-male,.member-row.gender-male {background:#e6f2ff;border-color:#9bc5f5;}
+    .member-pick.gender-female,.member-row.gender-female {background:#ffedf4;border-color:#f2abc9;}
+    .member-pick.gender-other,.member-row.gender-other {background:#f0ebff;border-color:#c7b8f5;}
+    .member-pick .member-person-info,.member-name .member-person-info {display:block;font-size:.64em;font-weight:650;color:#566274;line-height:1.35;}
+    .member-editor-row.profile-row {flex-wrap:wrap;padding:8px;border:1px solid #d8e2ef;border-radius:10px;}
+    .profile-row .profile-fields {display:flex;gap:6px;flex:1 1 100%;flex-wrap:wrap;}
+    .profile-row .profile-fields select,.profile-row .profile-fields input {flex:1 1 140px;min-width:0;padding:9px;font-size:1rem;border:1px solid #94a3b8;border-radius:8px;}
+    .new-profile-fields {display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+    .new-profile-fields select,.new-profile-fields input {flex:1 1 140px;min-width:0;padding:9px;border:1px solid #94a3b8;border-radius:8px;font-size:1rem;}
+    .badminton-court.name-reveal {cursor:pointer;}
+    .court-tap-hint {position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:.72rem;font-weight:750;color:#1e293b;background:rgba(255,255,255,.83);border-radius:12px;padding:2px 7px;z-index:5;white-space:nowrap;pointer-events:none;}
+    .court-name-label {font-size:clamp(.75rem,2vw,1.2rem);font-weight:950;line-height:1.2;text-align:center;overflow-wrap:anywhere;max-width:100%;padding:5px;border-radius:9px;background:#fff;color:#17213b;border:2px solid #94a3b8;}
+    .court-name-label.gender-male {background:#e6f2ff;border-color:#9bc5f5;}
+    .court-name-label.gender-female {background:#ffedf4;border-color:#f2abc9;}
+    .court-name-label.gender-other {background:#f0ebff;border-color:#c7b8f5;}
+    .badminton-court.names-visible .court-num .num-badge {display:none;}
+    .badminton-court .court-name-label {display:none;}
+    .badminton-court.names-visible .court-name-label {display:block;}
+    .badminton-court:focus-visible {outline:4px solid #2563eb;outline-offset:3px;}
     </style>
 </head>
 <body>
@@ -1063,7 +1084,7 @@
         <div class="member-selection" id="memberSelection">
             <div class="member-selection-heading">👥 組み合わせ設定 <span id="memberSelectedCount"></span></div>
             <div id="memberPicker" class="member-picker"></div>
-            <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div></details>
+            <details class="member-editor" id="memberEditor"><summary>✏️ 登録名簿を編集（追加・変更・削除）</summary><div class="member-help">「さん」は表示時に自動で付きます。名前には入力しないでください。</div><div id="memberEditorList"></div><div class="member-editor-row"><input type="text" id="memberNewName" class="member-new-name" placeholder="新しい名前／ゲスト1" maxlength="40"><button type="button" class="member-small-btn" onclick="addRosterMember()">登録</button></div><div class="new-profile-fields"><select id="memberNewGender" aria-label="新規登録者の性別"><option value="">性別：未設定</option><option value="male">男性</option><option value="female">女性</option><option value="other">その他・非公開</option></select><input type="text" id="memberNewIntroducer" placeholder="紹介者・知り合い（任意）" maxlength="60"></div></details>
             <div class="member-controls"><button type="button" class="btn" id="shuffleMembersBtn" onclick="shuffleMemberNumbers()">🎲 番号をランダム決定</button></div>
         <div class="member-config">
             <h2>⚙️ コート設定・試合モード</h2>
@@ -1358,6 +1379,21 @@ let isApplyingServerState = false;
         function memberEsc(v) {
             return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
+        function genderClass(m) { return m && ['male','female','other'].includes(m.gender) ? 'gender-'+m.gender : ''; }
+        function introLabel(m) { return m && m.introducer ? '<small class="member-person-info">紹介：'+memberEsc(m.introducer)+'</small>' : ''; }
+        function getMemberByNumber(num) { return roster.find(m=>Number(memberNumbers[m.id])===Number(num)); }
+        function profileOptions(g) { return '<option value=""'+(!g?' selected':'')+'>性別：未設定</option><option value="male"'+(g==='male'?' selected':'')+'>男性</option><option value="female"'+(g==='female'?' selected':'')+'>女性</option><option value="other"'+(g==='other'?' selected':'')+'>その他・非公開</option>'; }
+        function saveMemberProfile(id) {
+            const m=roster.find(x=>x.id===id); if(!m)return;
+            const nameInput=document.querySelector('[data-member-name="'+id+'"]');
+            const genderInput=document.querySelector('[data-member-gender="'+id+'"]');
+            const introInput=document.querySelector('[data-member-introducer="'+id+'"]');
+            const name=(nameInput?.value||'').trim().replace(/さん$/,'').trim();
+            if(!name){alert('名前を入力してください。');return;}
+            if(roster.some(x=>x.id!==id&&x.name===name)){alert('同じ名前が登録されています。');return;}
+            m.name=name; m.gender=genderInput?.value||''; m.introducer=(introInput?.value||'').trim();
+            markInteraction();renderMembers();renderExtraPlayerChoices();renderMatches(false);scheduleStateSave();
+        }
         function nextGuestName() {
             let n=1;
             while(roster.some(m=>m.name === 'ゲスト'+n)) n++;
@@ -1452,14 +1488,14 @@ let isApplyingServerState = false;
             const value=input.value.trim().replace(/さん$/,'').trim();
             if(!value) {alert('名前を入力してください。');return;}
             if(roster.some(x=>x.id!==id&&x.name===value)) {alert('同じ名前が登録されています。');return;}
-            m.name=value;
-            markInteraction();renderMembers();scheduleStateSave();
+            saveMemberProfile(id);
         }
         function addRosterMember() {
             const input=document.getElementById('memberNewName');
             const value=(input.value.trim()||nextGuestName()).replace(/さん$/,'').trim();
             if(roster.some(m=>m.name===value)) {alert('同じ名前が登録されています。');return;}
-            roster.push({id:memberId(),name:value});
+            roster.push({id:memberId(),name:value,gender:document.getElementById('memberNewGender').value,introducer:document.getElementById('memberNewIntroducer').value.trim()});
+            document.getElementById('memberNewName').value='';document.getElementById('memberNewGender').value='';document.getElementById('memberNewIntroducer').value='';
             markInteraction();renderMembers();scheduleStateSave();
         }
         function removeRosterMember(id) {
@@ -1504,10 +1540,10 @@ let isApplyingServerState = false;
                 if(ag!==bg)return ag?1:-1;
                 return a.name.localeCompare(b.name,'ja',{numeric:true,sensitivity:'base'});
             });
-            picker.innerHTML=sortedRoster.map(m=>`<label class="member-pick"><input type="checkbox" ${selectedMemberIds.includes(m.id)?'checked ':''}${running?'disabled ':''}onchange="changeMemberSelection('${m.id}',this.checked)"><span>${memberEsc(m.name)}<small class="member-san">さん</small></span></label>`).join('');
+            picker.innerHTML=sortedRoster.map(m=>`<label class="member-pick ${genderClass(m)}"><input type="checkbox" ${selectedMemberIds.includes(m.id)?'checked ':''}${running?'disabled ':''}onchange="changeMemberSelection('${m.id}',this.checked)"><span>${memberEsc(m.name)}<small class="member-san">さん</small>${introLabel(m)}</span></label>`).join('');
             const rows=selectedMemberIds.map(id=>({id,member:roster.find(m=>m.id===id),num:Number(memberNumbers[id])})).filter(x=>x.member&&x.num>0).sort((a,b)=>a.num-b.num);
-            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small></div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action early '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
-            editor.innerHTML=sortedRoster.map(m=>`<div class="member-editor-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40"><button type="button" class="member-small-btn" onclick="updateRosterName('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button></div>`).join('');
+            list.innerHTML=rows.length ? rows.map(({member,num})=>'<div class="member-row '+genderClass(member)+'"><div class="member-num">'+num+'</div><div class="member-name">'+memberEsc(member.name)+'<small class="member-san">さん</small>'+introLabel(member)+'</div><button type="button" class="member-action '+(myNumber===num?'is-mine':'')+'" onclick="selectMyNumber('+(myNumber===num?'null':num)+')">'+(myNumber===num?'⭐ 自分':'☆ 自分')+'</button><button type="button" class="member-action early '+(absentPlayers.has(num)?'is-early':'')+'" onclick="toggleMemberEarly('+num+')">'+(absentPlayers.has(num)?'🔴 早上がり':'早上がり')+'</button></div>').join('') : '<div class="member-help">番号は未決定です。参加者を選んで「番号をランダム決定」を押してください。</div>';
+            editor.innerHTML=sortedRoster.map(m=>`<div class="member-editor-row profile-row"><input type="text" data-member-name="${m.id}" value="${memberEsc(m.name)}" maxlength="40" aria-label="名前"><button type="button" class="member-small-btn" onclick="saveMemberProfile('${m.id}')">保存</button><button type="button" class="member-small-btn danger" onclick="removeRosterMember('${m.id}')">削除</button><div class="profile-fields"><select data-member-gender="${m.id}" aria-label="性別">${profileOptions(m.gender)}</select><input type="text" data-member-introducer="${m.id}" value="${memberEsc(m.introducer||'')}" maxlength="60" placeholder="誰の知り合い・紹介者（任意）" aria-label="紹介者"></div></div>`).join('');
             const countLabel=document.getElementById('memberSelectedCount');
             if(countLabel)countLabel.textContent='（'+selectedMemberIds.length+'人選択）';
             const ready=selectedMemberIds.length>=4 && selectedMemberIds.every(id=>Number(memberNumbers[id])>0);
@@ -1536,7 +1572,7 @@ let isApplyingServerState = false;
                 const ag=/^ゲスト[0-9０-９]*$/.test(a.name),bg=/^ゲスト[0-9０-９]*$/.test(b.name);
                 return ag!==bg?(ag?1:-1):a.name.localeCompare(b.name,'ja',{numeric:true,sensitivity:'base'});
             });
-            container.innerHTML=available.length?available.map(m=>'<label class="member-pick"><input type="checkbox" value="'+memberEsc(m.id)+'" '+(checked.has(m.id)?'checked':'')+'><span>'+memberEsc(m.name)+'<small class="member-san">さん</small></span></label>').join(''):'<div class="member-help">追加できる登録メンバーがいません。下の入力欄から新規追加してください。</div>';
+            container.innerHTML=available.length?available.map(m=>'<label class="member-pick"><input type="checkbox" value="'+memberEsc(m.id)+'" '+(checked.has(m.id)?'checked':'')+'><span>'+memberEsc(m.name)+'<small class="member-san">さん</small>'+introLabel(m)+'</span></label>').join(''):'<div class="member-help">追加できる登録メンバーがいません。下の入力欄から新規追加してください。</div>';
         }
         function addExtraGuestChoice() {
             if(currentMaxPlayers>=30)return;
@@ -2202,13 +2238,22 @@ function setProgressMode(mode, persist = true) {
             saveServerState();
         }
 
+        function toggleCourtNames(el) {
+            el.classList.toggle('names-visible');
+            const hint=el.querySelector('.court-tap-hint');
+            if(hint)hint.textContent=el.classList.contains('names-visible')?'タップで番号に戻す':'タップで4人の名前';
+        }
+        function courtNameMarkup(num) {
+            const m=getMemberByNumber(num);
+            return '<span class="court-name-label '+genderClass(m)+'">'+(m?memberEsc(m.name)+'さん':memberEsc(num))+'</span>';
+        }
         function courtMarkup(c, extraClass='') {
             if (!c) return '';
-            return '<div class="badminton-court ' + extraClass + '">' +
-                '<div class="court-side left"><span class="court-num">' + renderBadge(c.teamA[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamA[1]) + '</span></div>' +
+            return '<div class="badminton-court name-reveal ' + extraClass + '" role="button" tabindex="0" aria-label="コートをタップして4人の名前を表示" onclick="toggleCourtNames(this)" onkeydown="if(event.key===\"Enter\"||event.key===\" \"){event.preventDefault();toggleCourtNames(this)}">' +
+                '<div class="court-side left"><span class="court-num">' + renderBadge(c.teamA[0]) + courtNameMarkup(c.teamA[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamA[1]) + courtNameMarkup(c.teamA[1]) + '</span></div>' +
                 '<div class="court-divider"></div>' +
-                '<div class="court-side right"><span class="court-num">' + renderBadge(c.teamB[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamB[1]) + '</span></div>' +
-            '</div>';
+                '<div class="court-side right"><span class="court-num">' + renderBadge(c.teamB[0]) + courtNameMarkup(c.teamB[0]) + '</span><span class="court-dash">-</span><span class="court-num">' + renderBadge(c.teamB[1]) + courtNameMarkup(c.teamB[1]) + '</span></div>' +
+            '<span class="court-tap-hint">タップで4人の名前</span></div>';
         }
 
         function renderMatchCard(match, label, isCurrent, isDone, includeButton=false, courtIndex=null) {
