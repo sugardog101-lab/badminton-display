@@ -1068,7 +1068,8 @@
     .badminton-court:focus-visible {outline:4px solid #2563eb;outline-offset:3px;}
 
     /* 出場状況レポート：既存の同期データを端末内で集計 */
-    .participation-report { margin-top:18px; border:3px solid #475569; border-radius:16px; background:#fff; padding:14px 16px; }
+    .participation-leave { display:block; margin-top:3px; font-size:.78em; font-weight:700; color:#b91c1c; line-height:1.35; }
+    .participation-report { margin-top:0; margin-bottom:20px; border:3px solid #475569; border-radius:16px; background:#fff; padding:14px 16px; }
     .participation-report > summary { cursor:pointer; font-weight:900; font-size:1.65rem; color:#0f172a; list-style:none; }
     .participation-report > summary::-webkit-details-marker { display:none; }
     .participation-report > summary::after { content:'▼'; float:right; font-size:1rem; }
@@ -1139,6 +1140,11 @@
     </details>
 
 
+    <details id="participationReport" class="participation-report">
+      <summary>📊 本日の出場状況</summary>
+      <div id="participationReportContent" aria-live="off"><p class="participation-report-note">組み合わせ作成後に表示されます。</p></div>
+    </details>
+
     <!-- 3. 試合スケジュール -->
 
 <div class="schedule-heading">
@@ -1153,10 +1159,6 @@
     <div id="matchesFrame" class="matches-frame">
         <div id="matchList"></div>
     </div>
-    <details id="participationReport" class="participation-report">
-      <summary>📊 本日の出場状況</summary>
-      <div id="participationReportContent" aria-live="off"><p class="participation-report-note">組み合わせ作成後に表示されます。</p></div>
-    </details>
 
     <!-- 4. YouTube バナー -->
     <div class="youtube-card">
@@ -1175,6 +1177,8 @@
         let memberAssignmentKey = ''; // 各端末の自分マークのリセット判定
 
         let absentPlayers = new Set();
+        // 早上がりした時点。通常モードは次の試合番号、コート別は各面の次試合番号。
+        let earlyLeavePoints = {};
         let matchesData = [];         
         let originalMatchesData = []; 
         let completedMatches = new Set();
@@ -1479,7 +1483,7 @@ let isApplyingServerState = false;
             markInteraction();
             matchesData=[];originalMatchesData=[];baseMatchesData=[];
             completedMatches.clear();courtProgress={};absentPlayers.clear();appliedAbsentPlayers.clear();
-            pendingAddedPlayers.clear();newPlayers.clear();playerJoinMatch={};matchTimes={};
+            pendingAddedPlayers.clear();newPlayers.clear();playerJoinMatch={};earlyLeavePoints={};matchTimes={};
             memberNumbers={};myNumber=null;localStorage.removeItem('badminton_my_num');
             selectedMemberIds=[];
             currentMaxPlayers=0;
@@ -1714,9 +1718,21 @@ let isApplyingServerState = false;
             if (absentPlayers.has(num)) {
                 absentPlayers.delete(num);
                 appliedAbsentPlayers.delete(num);
+                // 早上がりを取り消したら、再び参加可能として扱う。
+                delete earlyLeavePoints[num];
             } else {
                 absentPlayers.add(num);
                 appliedAbsentPlayers.delete(num);
+                const isCourtMode=document.body.dataset.progressMode==='court';
+                const byCourt={};
+                if(isCourtMode) {
+                    const count=Math.max(1,...matchesData.map(m=>(m.courts||[]).length));
+                    for(let c=1;c<=count;c++) byCourt[c]=(Number(courtProgress[c])||1)+1;
+                }
+                earlyLeavePoints[num]={
+                    nextMatch:getCurrentMatchNum()+1,
+                    byCourt:isCourtMode?byCourt:null
+                };
             }
 
             // 早上がりを設定した時点で、次の予定試合以降を再組み合わせする。
@@ -1784,6 +1800,7 @@ function setProgressMode(mode, persist = true) {
             }
             if (!confirm('全員の番号を確認しましたか？ 今日の組み合わせを作成すると番号が固定され、現在の進行状態はリセットされます。')) return;
             completedMatches.clear();
+            earlyLeavePoints={};
             appliedAbsentPlayers.clear();
             matchTimes = {};
             pendingAddedPlayers.clear();
@@ -2336,9 +2353,20 @@ function setProgressMode(mode, persist = true) {
                 records.forEach(r=>{
                     const join=Number(playerJoinMatch[r.num])||1;
                     if(m.matchNum<join) return;
-                    // 早上がりは、既存データに離脱試合番号がないため
-                    // 現在の欠席フラグのみで過去の休憩回数を推定しない。
-                    if(playing.has(r.num)) r.play++;
+                    const leave=earlyLeavePoints[r.num];
+                    if(leave) {
+                        // 早上がりした時点より後は休憩にも出場率の分母にも含めない。
+                        // コート別では各面の進行状況を個別に確認する。
+                        const eligibleCourts=activeCourts.filter((c,i)=>{
+                            const courtNum=Number(c.courtNum)||((m.courts||[]).indexOf(c)+1);
+                            const cutoff=leave.byCourt && leave.byCourt[courtNum] != null
+                                ? Number(leave.byCourt[courtNum]) : Number(leave.nextMatch);
+                            return m.matchNum < cutoff;
+                        });
+                        if(!eligibleCourts.length) return;
+                        const eligiblePlaying=eligibleCourts.some(c=>[...(c.teamA||[]),...(c.teamB||[])].some(n=>Number(n)===r.num));
+                        if(eligiblePlaying) r.play++;
+                    } else if(playing.has(r.num)) r.play++;
                     r.eligible++;
                 });
             });
@@ -2350,9 +2378,19 @@ function setProgressMode(mode, persist = true) {
                 rows.map(r=>{
                     const rest=Math.max(0,r.eligible-r.play);
                     const rate=r.eligible ? (r.play/r.eligible*100).toFixed(1)+'%' : '—';
-                    return '<tr><td>'+r.num+' '+memberEsc(r.name)+'さん</td><td>'+r.play+'回</td><td>'+rest+'回</td><td>'+rate+'</td></tr>';
+                    const leave=earlyLeavePoints[r.num];
+                    const legacy=absentPlayers.has(r.num) && !leave;
+                    let leaveLabel='';
+                    if(leave) {
+                        const last=Math.max(0,(Number(leave.nextMatch)||1)-1);
+                        const detail=leave.byCourt
+                            ? Object.entries(leave.byCourt).map(([c,n])=>(Number(c)===1?'A':'B')+'面 第'+Math.max(0,Number(n)-1)+'試合後').join('／')
+                            : '第'+last+'試合後';
+                        leaveLabel='<small class="participation-leave">🔴 早上がり（'+memberEsc(detail)+'）</small>';
+                    } else if(legacy) leaveLabel='<small class="participation-leave">🔴 早上がり（時点不明）</small>';
+                    return '<tr><td>'+r.num+' '+memberEsc(r.name)+'さん'+leaveLabel+'</td><td>'+r.play+'回</td><td>'+rest+'回</td><td>'+rate+'</td></tr>';
                 }).join('')+'</tbody></table>'+
-                '<p class="participation-report-note">※ 途中参加前の試合は除外します。早上がりの離脱時点は現行データに記録されないため、離脱後の休憩数を厳密には区別できません。</p>';
+                '<p class="participation-report-note">※ 途中参加前と、記録済みの早上がり後は集計対象外です。旧データで早上がり時点が不明な場合、過去の休憩数には離脱後の分が含まれる可能性があります。</p>';
         }
 
         function renderMatches(autoScroll = false) {
@@ -2531,6 +2569,7 @@ function saveServerState() {
         pendingAddedPlayers: Array.from(pendingAddedPlayers),
         newPlayers: Array.from(newPlayers),
         playerJoinMatch,
+        earlyLeavePoints,
         scheduleDate: scheduleDate || getTodayKey(),
         currentMatchNum: getCurrentMatchNum(),
         scrollVersion: Number(scrollVersion) || 0,
@@ -2679,6 +2718,7 @@ async function loadServerState(isInitial = false, force = false) {
                 pendingAddedPlayers = new Set();
                 newPlayers = new Set();
                 playerJoinMatch = {};
+                earlyLeavePoints = {};
                 courtProgress = {};
                 matchesData = [];
                 originalMatchesData = [];
@@ -2728,6 +2768,7 @@ async function loadServerState(isInitial = false, force = false) {
             pendingAddedPlayers = new Set(state.pendingAddedPlayers || []);
             newPlayers = new Set(state.newPlayers || []);
             playerJoinMatch = state.playerJoinMatch || {};
+            earlyLeavePoints = state.earlyLeavePoints || {};
 
             matchesData = Array.isArray(state.matchesData) ? state.matchesData : [];
             originalMatchesData = Array.isArray(state.originalMatchesData) ? state.originalMatchesData : [];
