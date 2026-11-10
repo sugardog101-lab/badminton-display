@@ -1056,7 +1056,9 @@
     .new-profile-fields select,.new-profile-fields input {flex:1 1 140px;min-width:0;padding:9px;border:1px solid #94a3b8;border-radius:8px;font-size:1rem;}
     .badminton-court.name-reveal {cursor:pointer;}
     .court-tap-hint {position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:.72rem;font-weight:750;color:#1e293b;background:rgba(255,255,255,.83);border-radius:12px;padding:2px 7px;z-index:5;white-space:nowrap;pointer-events:none;}
-    .court-name-label {font-size:clamp(.75rem,2vw,1.2rem);font-weight:950;line-height:1.2;text-align:center;overflow-wrap:anywhere;max-width:100%;padding:5px;border-radius:9px;background:#fff;color:#17213b;border:2px solid #94a3b8;}
+    .court-name-label {font-size:clamp(1.25rem,2.6vw,1.7rem);font-weight:950;line-height:1.2;text-align:center;overflow-wrap:anywhere;max-width:100%;padding:5px 3px;border-radius:9px;background:#fff;color:#17213b;border:2px solid #94a3b8;}
+    .current-match .court-name-label {font-size:clamp(1.45rem,3vw,2rem);}
+    @media(max-width:800px) { .court-name-label {font-size:1.45rem;padding:4px 2px;} .current-match .court-name-label {font-size:1.65rem;} }
     .court-name-label.gender-male {background:#e6f2ff;border-color:#9bc5f5;}
     .court-name-label.gender-female {background:#ffedf4;border-color:#f2abc9;}
     .court-name-label.gender-other {background:#f0ebff;border-color:#c7b8f5;}
