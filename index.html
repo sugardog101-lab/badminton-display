@@ -1066,6 +1066,26 @@
     .badminton-court .court-name-label {display:none;}
     .badminton-court.names-visible .court-name-label {display:block;}
     .badminton-court:focus-visible {outline:4px solid #2563eb;outline-offset:3px;}
+
+    /* 出場状況レポート：既存の同期データを端末内で集計 */
+    .participation-report { margin-top:18px; border:3px solid #475569; border-radius:16px; background:#fff; padding:14px 16px; }
+    .participation-report > summary { cursor:pointer; font-weight:900; font-size:1.65rem; color:#0f172a; list-style:none; }
+    .participation-report > summary::-webkit-details-marker { display:none; }
+    .participation-report > summary::after { content:'▼'; float:right; font-size:1rem; }
+    .participation-report[open] > summary::after { content:'▲'; }
+    .participation-report-note { margin:12px 0; font-size:1rem; color:#475569; line-height:1.5; }
+    .participation-table { width:100%; border-collapse:collapse; font-size:1.1rem; }
+    .participation-table th,.participation-table td { border-bottom:1px solid #dbe2ea; padding:11px 5px; text-align:right; font-variant-numeric:tabular-nums; }
+    .participation-table th:first-child,.participation-table td:first-child { text-align:left; }
+    .participation-table th { color:#334155; font-size:1rem; white-space:nowrap; }
+    .participation-table td:first-child { font-weight:800; overflow-wrap:anywhere; }
+    @media(max-width:800px) {
+      .participation-report > summary { font-size:2.5rem; }
+      .participation-report-note { font-size:1.75rem; }
+      .participation-table { font-size:1.9rem; }
+      .participation-table th { font-size:1.65rem; }
+      .participation-table th,.participation-table td { padding:15px 4px; }
+    }
     </style>
 </head>
 <body>
@@ -1133,6 +1153,10 @@
     <div id="matchesFrame" class="matches-frame">
         <div id="matchList"></div>
     </div>
+    <details id="participationReport" class="participation-report">
+      <summary>📊 本日の出場状況</summary>
+      <div id="participationReportContent" aria-live="off"><p class="participation-report-note">組み合わせ作成後に表示されます。</p></div>
+    </details>
 
     <!-- 4. YouTube バナー -->
     <div class="youtube-card">
@@ -2279,8 +2303,61 @@ function setProgressMode(mode, persist = true) {
             return card;
         }
 
+
+        // 集計は現在受信済みの組み合わせからブラウザ内だけで行う。
+        // 通常モードは第1試合～現在試合、コート別モードは各コートの現在試合まで。
+        function renderParticipationReport() {
+            const host=document.getElementById('participationReportContent');
+            if(!host) return;
+            if(!matchesData || !matchesData.length) {
+                host.innerHTML='<p class="participation-report-note">組み合わせ作成後に表示されます。</p>';
+                return;
+            }
+            const mode=document.body.dataset.progressMode || 'match';
+            const current=getCurrentMatchNum();
+            const maxByCourt={};
+            if(mode==='court') {
+                const count=Math.max(1,...matchesData.map(m=>(m.courts||[]).length));
+                for(let c=1;c<=count;c++) maxByCourt[c]=Number(courtProgress[c])||1;
+            }
+            const records=new Map();
+            selectedMemberIds.forEach(id=>{
+                const m=roster.find(x=>x.id===id);
+                const num=Number(memberNumbers[id]);
+                if(m && num>0) records.set(num,{num,name:m.name,play:0,rest:0,eligible:0});
+            });
+            const rounds=matchesData.filter(m=>!m.error).sort((a,b)=>a.matchNum-b.matchNum);
+            rounds.forEach(m=>{
+                const activeCourts=(m.courts||[]).filter((c,i)=>c && m.matchNum <= (mode==='court' ? (maxByCourt[i+1]||0) : current));
+                if(!activeCourts.length) return;
+                const playing=new Set();
+                activeCourts.forEach(c=>[...(c.teamA||[]),...(c.teamB||[])].forEach(n=>playing.add(Number(n))));
+                // 2面で同じ第N試合なら1回分。片面だけ先行中も重複集計しない。
+                records.forEach(r=>{
+                    const join=Number(playerJoinMatch[r.num])||1;
+                    if(m.matchNum<join) return;
+                    // 早上がりは、既存データに離脱試合番号がないため
+                    // 現在の欠席フラグのみで過去の休憩回数を推定しない。
+                    if(playing.has(r.num)) r.play++;
+                    r.eligible++;
+                });
+            });
+            const rows=[...records.values()].sort((a,b)=>a.num-b.num);
+            const count=mode==='court' ? Object.entries(maxByCourt).map(([c,n])=>(c=== '1'?'A':'B')+'コート第'+n+'試合').join('／') : '第'+current+'試合';
+            const note='現在試合中を含む：'+count+'まで。出場率＝出場回数÷対象試合数。';
+            host.innerHTML='<p class="participation-report-note">'+memberEsc(note)+'</p>'+
+                '<table class="participation-table"><thead><tr><th>参加者</th><th>出場</th><th>休憩</th><th>出場率</th></tr></thead><tbody>'+
+                rows.map(r=>{
+                    const rest=Math.max(0,r.eligible-r.play);
+                    const rate=r.eligible ? (r.play/r.eligible*100).toFixed(1)+'%' : '—';
+                    return '<tr><td>'+r.num+' '+memberEsc(r.name)+'さん</td><td>'+r.play+'回</td><td>'+rest+'回</td><td>'+rate+'</td></tr>';
+                }).join('')+'</tbody></table>'+
+                '<p class="participation-report-note">※ 途中参加前の試合は除外します。早上がりの離脱時点は現行データに記録されないため、離脱後の休憩数を厳密には区別できません。</p>';
+        }
+
         function renderMatches(autoScroll = false) {
             ensureUniquePlayersAllMatches(matchesData);
+            renderParticipationReport();
             const listEl = document.getElementById('matchList');
             const frameEl = document.getElementById('matchesFrame');
             if (!matchesData || matchesData.length === 0) {
