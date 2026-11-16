@@ -1,20 +1,16 @@
-name = "badminton-display"
-main = "worker.js"
-compatibility_date = "2026-09-17"
+name = "mackypazoo-ai"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
 
-[assets]
-directory = "./"
-binding = "ASSETS"
+# For shared report storage, create KV and uncomment:
+# [[kv_namespaces]]
+# binding = "REPORTS"
+# id = "REPLACE_WITH_YOUR_KV_ID"
 
-# 既存のKVは初回移行・バックアップのため残す
-[[kv_namespaces]]
-binding = "BADMINTON_STATE"
-id = "2d3475edfd16404ca757e2a9ab0d706c"
+[vars]
+YOUTUBE_HANDLE = "MACKYPAZOO"
 
-[[durable_objects.bindings]]
-name = "BADMINTON_ROOM"
-class_name = "BadmintonRoom"
-
-[[migrations]]
-tag = "v1-badminton-room"
-new_sqlite_classes = ["BadmintonRoom"]
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
