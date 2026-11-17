@@ -30,14 +30,38 @@ export class BadmintonRoom {
     try {body=await request.json();} catch {return json({ok:false,error:'invalid_json'},400);}
     if(typeof body?.json!=='string') return json({ok:false,error:'invalid_state'},400);
     const revision=Number(body.revision);
+    let incoming;
+    try {incoming=JSON.parse(body.json);} catch {return json({ok:false,error:'invalid_state_json'},400);}
+    if(!incoming||typeof incoming!=='object'||Array.isArray(incoming))return json({ok:false,error:'invalid_state'},400);
+    const progressIntent=body.progressIntent;
+    const hasRegressed=(before,after)=>{
+      const prevCompleted=new Set(Array.isArray(before.completedMatches)?before.completedMatches.map(Number):[]);
+      const nextCompleted=new Set(Array.isArray(after.completedMatches)?after.completedMatches.map(Number):[]);
+      for(const n of prevCompleted)if(!nextCompleted.has(n))return true;
+      const prevCourts=before.courtProgress||{};
+      const nextCourts=after.courtProgress||{};
+      for(const c of Object.keys(prevCourts)){
+        if((Number(nextCourts[c])||1)<(Number(prevCourts[c])||1))return true;
+      }
+      // 既存の組み合わせを消す操作も、明示的なリセットに限定する。
+      if(Array.isArray(before.matchesData)&&before.matchesData.length>0 && (!Array.isArray(after.matchesData)||after.matchesData.length===0))return true;
+      return false;
+    };
     const outcome=await this.ctx.storage.transaction(async tx=>{
       const current=await tx.get('state')||{revision:0,json:''};
       if(!Number.isSafeInteger(revision)||revision!==current.revision) return {conflict:current};
+      if(current.json){
+        let before;
+        try {before=JSON.parse(current.json);}catch{return {conflict:current};}
+        if(hasRegressed(before,incoming) && progressIntent!=='rollback' && progressIntent!=='reset'){
+          return {conflict:current,reason:'progress_rollback_blocked'};
+        }
+      }
       const next={revision:current.revision+1,json:body.json};
       await tx.put('state',next);
       return {next};
     });
-    if(outcome.conflict) return json({ok:false,conflict:true,revision:outcome.conflict.revision,json:outcome.conflict.json},409);
+    if(outcome.conflict) return json({ok:false,conflict:true,reason:outcome.reason||'revision_conflict',revision:outcome.conflict.revision,json:outcome.conflict.json},409);
     const next=outcome.next;
     for(const socket of this.ctx.getWebSockets()) {
       try {socket.send(JSON.stringify({type:'updated',revision:next.revision}));} catch {}
