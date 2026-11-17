@@ -1,16 +1,16 @@
-name = "mackypazoo-ai"
-main = "src/worker.js"
-compatibility_date = "2026-10-01"
 
-# For shared report storage, create KV and uncomment:
-# [[kv_namespaces]]
-# binding = "REPORTS"
-# id = "REPLACE_WITH_YOUR_KV_ID"
+name = "badminton-display"
+main = "worker.js"
+compatibility_date = "2026-09-17"
 
-[vars]
-YOUTUBE_HANDLE = "MACKYPAZOO"
+[assets]
+directory = "./"
+binding = "ASSETS"
 
-[[rules]]
-type = "Text"
-globs = ["**/*.html"]
-fallthrough = true
+[[kv_namespaces]]
+binding = "BADMINTON_STATE"
+id = "2d3475edfd16404ca757e2a9ab0d706c"
+
+[[durable_objects.bindings]]
+name = "BADMINTON_ROOM"
+class_name = "BadmintonRoom"
