@@ -1087,6 +1087,27 @@
       .participation-table th { font-size:1.65rem; }
       .participation-table th,.participation-table td { padding:15px 4px; }
     }
+
+    /* AI試合分析：本日の出場状況と同じ幅・文字サイズ */
+    .ai-analysis-link { display:flex; width:100%; box-sizing:border-box; align-items:center; justify-content:space-between; cursor:pointer; font-family:inherit; font-size:1.65rem; font-weight:900; color:#fff; background:#0f766e; border-color:#0f766e; text-align:left; }
+    .ai-analysis-link span {font-size:1.1rem;}
+    .ai-analysis-overlay {position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9998; opacity:0; transition:opacity .22s ease;}
+    .ai-analysis-drawer {position:fixed; top:0; left:0; bottom:0; width:min(100%,1050px); background:white; z-index:9999; display:flex; flex-direction:column; box-shadow:10px 0 35px rgba(0,0,0,.2); transform:translateX(-100%); transition:transform .25s ease;}
+    .ai-analysis-overlay[hidden], .ai-analysis-drawer[hidden] {display:none;}
+    .ai-analysis-overlay.is-open {opacity:1;}
+    .ai-analysis-drawer.is-open {transform:translateX(0);}
+    .ai-analysis-header {display:flex; gap:12px; align-items:center; padding:12px 16px; background:#0f766e; color:white; min-height:48px;}
+    .ai-analysis-header strong {font-size:1.2rem; flex:1;}
+    .ai-analysis-header a {color:white; font-size:.9rem; text-decoration:underline;}
+    .ai-analysis-header button {background:white; color:#0f766e; border:0; border-radius:9px; font-size:1.3rem; width:42px; height:42px; cursor:pointer;}
+    .ai-analysis-drawer iframe {flex:1; border:0; width:100%; min-height:0; background:white;}
+    body.ai-analysis-open {overflow:hidden;}
+    @media(max-width:800px) {
+      .ai-analysis-link {font-size:2.5rem;}
+      .ai-analysis-drawer {width:100%;}
+      .ai-analysis-header {padding:10px;}
+      .ai-analysis-header strong {font-size:1.15rem;}
+    }
     </style>
 </head>
 <body>
@@ -1160,7 +1181,18 @@
       <div id="participationReportContent" aria-live="off"><p class="participation-report-note">組み合わせ作成後に表示されます。</p></div>
     </details>
 
-    <a href="https://mackypazoo-ai.sugardog101.workers.dev/" target="_blank" rel="noopener noreferrer" style="display:block;margin:12px 0 20px;padding:14px 16px;background:#0f766e;color:#fff;text-align:center;text-decoration:none;border-radius:14px;font-size:1.25rem;font-weight:900;box-shadow:0 4px 9px rgba(0,0,0,.14);">🏸 AI試合分析を見る ↗</a>
+    <button type="button" class="ai-analysis-link participation-report" onclick="openAIAnalysis()" aria-haspopup="dialog">🏸 AI試合分析を見る <span aria-hidden="true">↗</span></button>
+
+    <!-- スマホでも画面内で開ける左側スライドパネル -->
+    <div id="aiAnalysisOverlay" class="ai-analysis-overlay" hidden onclick="closeAIAnalysis()"></div>
+    <section id="aiAnalysisDrawer" class="ai-analysis-drawer" role="dialog" aria-modal="true" aria-label="AI試合分析" aria-hidden="true" hidden>
+      <header class="ai-analysis-header">
+        <strong>🏸 AI試合分析</strong>
+        <a href="https://mackypazoo-ai.sugardog101.workers.dev/" target="_blank" rel="noopener noreferrer">別タブで開く ↗</a>
+        <button type="button" onclick="closeAIAnalysis()" aria-label="閉じる">✕</button>
+      </header>
+      <iframe id="aiAnalysisFrame" title="AI試合分析" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </section>
 
     <!-- 4. YouTube バナー -->
     <div class="youtube-card">
@@ -1172,6 +1204,33 @@
     </div>
 
     <script>
+
+        // AI分析パネル（外部サイト側でiframeを禁止している場合は「別タブで開く」を使用）
+        function openAIAnalysis() {
+          const overlay=document.getElementById('aiAnalysisOverlay');
+          const drawer=document.getElementById('aiAnalysisDrawer');
+          const frame=document.getElementById('aiAnalysisFrame');
+          if(!overlay||!drawer||!frame)return;
+          overlay.hidden=false; drawer.hidden=false;
+          drawer.setAttribute('aria-hidden','false');
+          if(!frame.src)frame.src='https://mackypazoo-ai.sugardog101.workers.dev/';
+          document.body.classList.add('ai-analysis-open');
+          requestAnimationFrame(()=>{overlay.classList.add('is-open');drawer.classList.add('is-open');});
+          drawer.querySelector('button').focus();
+        }
+        function closeAIAnalysis() {
+          const overlay=document.getElementById('aiAnalysisOverlay');
+          const drawer=document.getElementById('aiAnalysisDrawer');
+          if(!overlay||!drawer||drawer.hidden)return;
+          overlay.classList.remove('is-open');drawer.classList.remove('is-open');
+          document.body.classList.remove('ai-analysis-open');
+          drawer.setAttribute('aria-hidden','true');
+          setTimeout(()=>{if(!drawer.classList.contains('is-open')){overlay.hidden=true;drawer.hidden=true;}},260);
+        }
+        document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAIAnalysis();});
+
+        // 明示的な操作だけがサーバー側で進行状況を戻せる。
+        let pendingProgressIntent = null;
         let myNumber = localStorage.getItem('badminton_my_num') ? parseInt(localStorage.getItem('badminton_my_num')) : null;
         let roster = []; // {id,name} 常連・ゲストの登録名簿
         let selectedMemberIds = []; // 本日の参加者
@@ -1483,6 +1542,7 @@ let isApplyingServerState = false;
         function prepareNextSession() {
             if(!confirm('組み合わせをリセットし、参加メンバーのチェックもすべて外しますか？\n※登録済みの名前は残ります。'))return;
             markInteraction();
+            pendingProgressIntent='reset';
             matchesData=[];originalMatchesData=[];baseMatchesData=[];
             completedMatches.clear();courtProgress={};absentPlayers.clear();appliedAbsentPlayers.clear();
             pendingAddedPlayers.clear();newPlayers.clear();playerJoinMatch={};earlyLeavePoints={};matchTimes={};
@@ -2219,7 +2279,7 @@ function setProgressMode(mode, persist = true) {
 
         function formatTime(date) { return (date instanceof Date ? date : new Date(date)).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
         function markNextMatchTime(n) { if(n && !matchTimes[n]) matchTimes[n]=formatTime(new Date()); }
-        function goBackToMatch(n) { if(!confirm(`第${n}試合をMATCHに戻しますか？`)) return; completedMatches.forEach(x=>{if(x>=n) completedMatches.delete(x);}); scrollVersion++; renderMatches(true); saveServerState(); }
+        function goBackToMatch(n) { if(!confirm(`第${n}試合をMATCHに戻しますか？`)) return; completedMatches.forEach(x=>{if(x>=n) completedMatches.delete(x);}); pendingProgressIntent='rollback'; scrollVersion++; renderMatches(true); saveServerState(); }
         let activeSpeechButton = null;
         function resetSpeechButtons() {
             document.querySelectorAll('.read-aloud-btn').forEach(btn => {
@@ -2582,6 +2642,8 @@ function saveServerState() {
 
     const jsonStr = JSON.stringify(state);
     const baseRevision = Number(serverRevision) || 0;
+    const progressIntent = pendingProgressIntent;
+    pendingProgressIntent = null;
     saveInFlight = true;
 
     const saveController = new AbortController();
@@ -2591,7 +2653,7 @@ function saveServerState() {
         signal: saveController.signal,
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-        body: JSON.stringify({ json: jsonStr, revision: baseRevision })
+        body: JSON.stringify({ json: jsonStr, revision: baseRevision, progressIntent })
     })
     .then(async response => {
         clearTimeout(saveTimeout);
